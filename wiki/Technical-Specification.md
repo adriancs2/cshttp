@@ -28,7 +28,7 @@ For the project introduction and quick start, see the [README](../README.md).
   - [PercentDecoder](#percentdecoder)
   - [HttpPostedFile and HttpPostedFileCollection](#httppostedfile-and-httppostedfilecollection)
   - [SetCookie and SetCookieCollection](#setcookie-and-setcookiecollection)
-  - [CsHttpResponseBuilder](#cshttpresponsebuilder)
+  - [CsHttpResponse](#cshttpresponse)
 - [Configuration](#configuration)
   - [ParserOptions (Envelope)](#parseroptions-envelope)
   - [ContentParserOptions (Content)](#contentparseroptions-content)
@@ -76,7 +76,7 @@ Layer 2: Content
   HttpPostedFileCollection.cs ── file collection
   SetCookie.cs ──────────── Set-Cookie model
   ContentParserOptions.cs ── content limits and policies
-  CsHttpResponseBuilder.cs ── response byte[] builder
+  CsHttpResponse.cs ── response byte[] builder
 ```
 
 ---
@@ -365,28 +365,28 @@ string sameSite = cookie.SameSite;   // "Lax", "Strict", "None"
 string raw      = cookie.RawValue;   // original header value
 ```
 
-### CsHttpResponseBuilder
+### CsHttpResponse
 
 Builds HTTP/1.1 response byte arrays ready for socket writing. Content-Length is auto-calculated.
 
 **One-liner static methods:**
 
 ```csharp
-byte[] resp = CsHttpResponseBuilder.Html("<h1>Hello</h1>");
-byte[] resp = CsHttpResponseBuilder.Json("{\"ok\":true}");
-byte[] resp = CsHttpResponseBuilder.Text("plain text");
-byte[] resp = CsHttpResponseBuilder.Bytes(pdfBytes, "application/pdf");
-byte[] resp = CsHttpResponseBuilder.Status(204);
-byte[] resp = CsHttpResponseBuilder.Status(404);
-byte[] resp = CsHttpResponseBuilder.Redirect("/login");             // 302
-byte[] resp = CsHttpResponseBuilder.RedirectPermanent("/new-path"); // 301
-byte[] resp = CsHttpResponseBuilder.File(pdfBytes, "report.pdf", "application/pdf");
+byte[] resp = CsHttpResponse.Html("<h1>Hello</h1>");
+byte[] resp = CsHttpResponse.Json("{\"ok\":true}");
+byte[] resp = CsHttpResponse.Text("plain text");
+byte[] resp = CsHttpResponse.Bytes(pdfBytes, "application/pdf");
+byte[] resp = CsHttpResponse.Status(204);
+byte[] resp = CsHttpResponse.Status(404);
+byte[] resp = CsHttpResponse.Redirect("/login");             // 302
+byte[] resp = CsHttpResponse.RedirectPermanent("/new-path"); // 301
+byte[] resp = CsHttpResponse.File(pdfBytes, "report.pdf", "application/pdf");
 ```
 
 **Builder pattern:**
 
 ```csharp
-var builder = new CsHttpResponseBuilder(200);
+var builder = new CsHttpResponse(200);
 builder.Header("Content-Type", "text/html; charset=utf-8");
 builder.Header("X-Custom", "value");
 builder.SetCookie("sid", "abc123",
@@ -650,8 +650,8 @@ cshttp uses a two-tier reporting system. Errors are fatal — parsing stops. War
 | RFC 6265 §5.4 | Cookie header parsing | `CookieParser` |
 | RFC 6265 §4.1 | Set-Cookie header parsing | `SetCookieParser` |
 | RFC 6265bis | SameSite attribute | `SetCookie.SameSite` |
-| RFC 9110 §15 | Status codes and reason phrases | `CsHttpResponseBuilder.GetDefaultReasonPhrase` |
-| RFC 6266 | Content-Disposition in HTTP | `CsHttpResponseBuilder.File()` |
+| RFC 9110 §15 | Status codes and reason phrases | `CsHttpResponse.GetDefaultReasonPhrase` |
+| RFC 6266 | Content-Disposition in HTTP | `CsHttpResponse.File()` |
 
 ---
 

@@ -83,7 +83,7 @@ byte[] resp = CsHttpResponse.Redirect("/login");
 byte[] resp = CsHttpResponse.Status(204);
 
 // Full builder
-var builder = new CsHttpResponseBuilder(200);
+var builder = new CsHttpResponse(200);
 builder.Header("Content-Type", "text/html; charset=utf-8");
 builder.SetCookie("sid", "abc123", maxAge: 3600, httpOnly: true, secure: true, sameSite: "Lax");
 builder.Body("<h1>Hello</h1>");
@@ -164,7 +164,7 @@ Both layers enforce configurable limits to defend against common attacks:
 
 ## Installation
 
-cshttp is distributed as source files. Copy the `CsHttpParser` folder from `src/cshttp/` into your project. All 18 files use the `CsHttp` namespace.
+cshttp is distributed as source files. Copy the `CsHttpParser` folder from `src/cshttp/` into your project. All 19 files use the `CsHttp` namespace.
 
 | File | Purpose |
 |------|---------|
@@ -186,7 +186,7 @@ cshttp is distributed as source files. Copy the `CsHttpParser` folder from `src/
 | `HttpPostedFile.cs` | Uploaded file model |
 | `HttpPostedFileCollection.cs` | Uploaded file collection |
 | `SetCookie.cs` | Set-Cookie model with all attributes |
-| `CsHttpResponseBuilder.cs` | HTTP response byte array builder |
+| `CsHttpResponse.cs` | HTTP response byte array builder |
 
 No NuGet packages. No framework references beyond the base class library.
 
