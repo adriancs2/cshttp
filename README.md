@@ -11,7 +11,7 @@ Every major language has a standalone HTTP parser. C has [llhttp](https://github
 
 C# has no equivalent.
 
-If you need to parse HTTP in .NET today, you either adopt the entire ASP.NET Core stack (Kestrel, middleware pipeline, hosting abstractions, dependency injection) — or you write a hand-rolled parser that handles the happy path and silently breaks on chunked encoding, request smuggling, bare CR injection, obs-fold headers, and the other edge cases that RFC 9112 defines precisely and most hand-written parsers ignore.
+If you need to parse HTTP in .NET today, you either adopt the entire ASP.NET Web Forms, MVC, ASP.NET Core stack (IIS, Kestrel, middleware pipeline, hosting abstractions, dependency injection) — or you write a hand-rolled parser that handles the happy path and silently breaks on chunked encoding, request smuggling, bare CR injection, obs-fold headers, and the other edge cases that RFC 9112 defines precisely and most hand-written parsers ignore.
 
 cshttp fills that gap. It is a complete HTTP/1.1 message parser and content toolkit, implemented as plain C# source files you can drop into any project.
 
