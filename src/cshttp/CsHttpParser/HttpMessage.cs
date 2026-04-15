@@ -1,4 +1,10 @@
+﻿// cshttp - A C# Native HTTP/1.1 Request/Response Parser
+// Specification: RFC 9112 (HTTP/1.1 Message Syntax)
+// License: Public Domain
+// Target: C# 7.3 / .NET Framework 4.8
+
 using System.Collections.Generic;
+using System.Text;
 
 namespace CsHttp
 {
@@ -84,6 +90,10 @@ namespace CsHttp
     /// 
     /// RFC 9112 Section 3:
     ///   request-line = method SP request-target SP HTTP-version
+    /// 
+    /// Content accessors (Path, QueryString, Form, Files, Cookies) are lazy-parsed:
+    /// they are not computed until first access, then cached for all subsequent access.
+    /// A developer who only reads Method and Headers pays zero cost for content parsing.
     /// </summary>
     public sealed class HttpRequestMessage : HttpMessage
     {
@@ -103,6 +113,258 @@ namespace CsHttp
         /// The form of the request-target as determined during parsing.
         /// </summary>
         public RequestTargetForm RequestTargetForm { get; set; }
+
+        // ─── Content Parser Options ──────────────────────────────────
+
+        /// <summary>
+        /// Options for content-level parsing (query string, form, multipart, cookies).
+        /// Set this before accessing any lazy-parsed properties to control limits
+        /// and policies. If not set, ContentParserOptions.Default is used.
+        /// </summary>
+        public ContentParserOptions ContentOptions { get; set; }
+
+        // ─── Lazy-Parsed Content Properties ──────────────────────────
+
+        // Backing fields for lazy parsing (null = not yet parsed)
+        private string _path;
+        private bool _pathParsed;
+        private string _rawQueryString;
+        private bool _rawQueryStringParsed;
+        private HttpContentCollection _queryString;
+        private bool _queryStringParsed;
+        private HttpContentCollection _form;
+        private bool _formParsed;
+        private HttpPostedFileCollection _files;
+        private HttpContentCollection _multipartFields;
+        private bool _multipartParsed;
+        private HttpContentCollection _cookies;
+        private bool _cookiesParsed;
+
+        /// <summary>
+        /// The decoded URL path from the RequestTarget.
+        /// Percent-decoded per RFC 3986 Section 2.1.
+        /// 
+        /// For "/search?q=hello", returns "/search".
+        /// For "/path%2Fto%2Fpage", returns "/path/to/page".
+        /// 
+        /// Lazy-parsed on first access.
+        /// </summary>
+        public string Path
+        {
+            get
+            {
+                if (!_pathParsed)
+                {
+                    _path = QueryStringParser.ExtractPath(RequestTarget, ContentOptions);
+                    _pathParsed = true;
+                }
+                return _path;
+            }
+        }
+
+        /// <summary>
+        /// The raw query string from the RequestTarget, NOT percent-decoded.
+        /// Does not include the leading '?' delimiter.
+        /// 
+        /// For "/search?q=hello%20world&amp;page=2", returns "q=hello%20world&amp;page=2".
+        /// For "/path", returns null.
+        /// 
+        /// Lazy-parsed on first access.
+        /// </summary>
+        public string RawQueryString
+        {
+            get
+            {
+                if (!_rawQueryStringParsed)
+                {
+                    _rawQueryString = QueryStringParser.ExtractFromTarget(RequestTarget);
+                    _rawQueryStringParsed = true;
+                }
+                return _rawQueryString;
+            }
+        }
+
+        /// <summary>
+        /// The parsed query string parameters as a key-value collection.
+        /// Keys and values are percent-decoded.
+        /// 
+        /// Access: req.QueryString["page"] → "2"
+        /// All values: req.QueryString.GetValues("tag") → ["news", "tech"]
+        /// All keys: req.QueryString.AllKeys → ["q", "page"]
+        /// 
+        /// Lazy-parsed on first access.
+        /// </summary>
+        public HttpContentCollection QueryString
+        {
+            get
+            {
+                if (!_queryStringParsed)
+                {
+                    string raw = RawQueryString;
+                    if (raw == null)
+                    {
+                        _queryString = HttpContentCollection.Empty;
+                    }
+                    else
+                    {
+                        var result = QueryStringParser.Parse(raw, ContentOptions);
+                        _queryString = result.Success ? result.Collection : HttpContentCollection.Empty;
+                    }
+                    _queryStringParsed = true;
+                }
+                return _queryString;
+            }
+        }
+
+        /// <summary>
+        /// The parsed form body parameters (application/x-www-form-urlencoded).
+        /// Keys and values are percent-decoded.
+        /// 
+        /// Access: req.Form["email"] → "user@example.com"
+        /// 
+        /// Returns an empty collection if the Content-Type is not
+        /// application/x-www-form-urlencoded, or if no body is present.
+        /// 
+        /// For multipart/form-data, text-only form fields are also accessible
+        /// here (merged from the multipart parser).
+        /// 
+        /// Lazy-parsed on first access.
+        /// </summary>
+        public HttpContentCollection Form
+        {
+            get
+            {
+                if (!_formParsed)
+                {
+                    ParseFormAndFiles();
+                    _formParsed = true;
+                }
+                return _form;
+            }
+        }
+
+        /// <summary>
+        /// The uploaded files from a multipart/form-data request body.
+        /// 
+        /// Access: req.Files["avatar"] → HttpPostedFile
+        ///         req.Files["avatar"].FileName → "photo.jpg"
+        ///         req.Files["avatar"].Bytes → byte[]
+        /// 
+        /// Returns an empty collection if the Content-Type is not
+        /// multipart/form-data or if no files were uploaded.
+        /// 
+        /// Lazy-parsed on first access. Parsing Form also triggers file parsing.
+        /// </summary>
+        public HttpPostedFileCollection Files
+        {
+            get
+            {
+                if (!_multipartParsed && !_formParsed)
+                {
+                    ParseFormAndFiles();
+                    _formParsed = true;
+                }
+                return _files ?? HttpPostedFileCollection.Empty;
+            }
+        }
+
+        /// <summary>
+        /// The request cookies parsed from the Cookie header.
+        /// 
+        /// Access: req.Cookies["sid"] → "abc123"
+        ///         req.Cookies.AllKeys → ["sid", "theme"]
+        /// 
+        /// Returns an empty collection if no Cookie header is present.
+        /// 
+        /// Lazy-parsed on first access.
+        /// </summary>
+        public HttpContentCollection Cookies
+        {
+            get
+            {
+                if (!_cookiesParsed)
+                {
+                    string cookieHeader = Headers["Cookie"];
+                    if (cookieHeader == null)
+                    {
+                        _cookies = HttpContentCollection.Empty;
+                    }
+                    else
+                    {
+                        var result = CookieParser.Parse(cookieHeader, ContentOptions);
+                        _cookies = result.Success ? result.Collection : HttpContentCollection.Empty;
+                    }
+                    _cookiesParsed = true;
+                }
+                return _cookies;
+            }
+        }
+
+        /// <summary>
+        /// Combined indexer — searches QueryString → Form → Cookies → Headers.
+        /// Returns the first non-null match, or null if not found in any collection.
+        /// 
+        /// This follows the ASP.NET Web Forms Request["key"] convention.
+        /// The search order is: QueryString, Form, Cookies, Headers.
+        /// 
+        /// For unambiguous access, use the explicit collections directly:
+        ///   req.QueryString["key"], req.Form["key"], req.Cookies["key"], req.Headers["key"]
+        /// 
+        /// Note: a cookie named "email" could shadow a missing form field,
+        /// or a query string parameter could override a form POST value.
+        /// Use explicit access when precision matters.
+        /// </summary>
+        /// <param name="key">The parameter name to search for.</param>
+        /// <returns>The first matching value, or null.</returns>
+        public string this[string key]
+        {
+            get
+            {
+                return QueryString[key]
+                    ?? Form[key]
+                    ?? Cookies[key]
+                    ?? Headers[key];
+            }
+        }
+
+        // ─── Private: Form + File Parsing ────────────────────────────
+
+        /// <summary>
+        /// Parses both form fields and uploaded files from the request body.
+        /// Called lazily when either Form or Files is first accessed.
+        /// 
+        /// Handles two Content-Types:
+        ///   - application/x-www-form-urlencoded → FormParser
+        ///   - multipart/form-data → MultipartParser (fields + files)
+        /// </summary>
+        private void ParseFormAndFiles()
+        {
+            _files = HttpPostedFileCollection.Empty;
+            _form = HttpContentCollection.Empty;
+            _multipartParsed = true;
+
+            string contentType = Headers["Content-Type"];
+            if (contentType == null || Body == null || Body.Length == 0)
+                return;
+
+            if (FormParser.IsFormContentType(contentType))
+            {
+                // application/x-www-form-urlencoded
+                var result = FormParser.Parse(Body, contentType, ContentOptions);
+                if (result.Success)
+                    _form = result.Collection;
+            }
+            else if (MultipartParser.IsMultipartContentType(contentType))
+            {
+                // multipart/form-data
+                var result = MultipartParser.Parse(Body, contentType, ContentOptions);
+                if (result.Success)
+                {
+                    _form = result.FormFields ?? HttpContentCollection.Empty;
+                    _files = result.Files ?? HttpPostedFileCollection.Empty;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -123,6 +385,35 @@ namespace CsHttp
         /// Per RFC 9112 Section 4, clients SHOULD ignore this.
         /// </summary>
         public string ReasonPhrase { get; set; }
+
+        // ─── Lazy-Parsed Content Properties ──────────────────────────
+
+        private SetCookieCollection _setCookies;
+        private bool _setCookiesParsed;
+
+        /// <summary>
+        /// The parsed Set-Cookie headers from the response.
+        /// 
+        /// Access: resp.SetCookies["sid"] → SetCookie object
+        ///         resp.SetCookies["sid"].Value → "abc123"
+        ///         resp.SetCookies["sid"].HttpOnly → true
+        /// 
+        /// Returns an empty collection if no Set-Cookie headers are present.
+        /// 
+        /// Lazy-parsed on first access.
+        /// </summary>
+        public SetCookieCollection SetCookies
+        {
+            get
+            {
+                if (!_setCookiesParsed)
+                {
+                    _setCookies = SetCookieParser.ParseAll(Headers);
+                    _setCookiesParsed = true;
+                }
+                return _setCookies;
+            }
+        }
     }
 
     /// <summary>

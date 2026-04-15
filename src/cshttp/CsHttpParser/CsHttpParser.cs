@@ -590,9 +590,8 @@ namespace CsHttp
             if (cl != null)
             {
                 long contentLength;
-                var clErr = ParseContentLength(cl, ctx.Pos, ctx);
+                var clErr = ParseContentLength(cl, ctx.Pos, ctx, out contentLength);
                 if (clErr != null) return clErr;
-                contentLength = long.Parse(cl.Trim());
 
                 request.BodyFraming = BodyFrameKind.ContentLength;
                 return ReadContentLengthBody(ctx, request, contentLength);
@@ -669,9 +668,9 @@ namespace CsHttp
             // Rule 6: Valid Content-Length
             if (cl != null)
             {
-                var clErr = ParseContentLength(cl, ctx.Pos, ctx);
+                long contentLength;
+                var clErr = ParseContentLength(cl, ctx.Pos, ctx, out contentLength);
                 if (clErr != null) return clErr;
-                long contentLength = long.Parse(cl.Trim());
 
                 response.BodyFraming = BodyFrameKind.ContentLength;
                 return ReadContentLengthBody(ctx, response, contentLength);
@@ -1078,9 +1077,11 @@ namespace CsHttp
         /// <summary>
         /// Parse and validate a Content-Length header value.
         /// Section 6.3 rule 5: handles comma-separated duplicate values.
+        /// Outputs the validated numeric value via the out parameter.
         /// </summary>
-        private static ParseError ParseContentLength(string value, int pos, ParseContext ctx)
+        private static ParseError ParseContentLength(string value, int pos, ParseContext ctx, out long contentLength)
         {
+            contentLength = 0;
             value = value.Trim();
 
             // Check for comma-separated list (duplicate CL values)
@@ -1103,6 +1104,9 @@ namespace CsHttp
 
                 ctx.Warn(ParseWarningKind.DuplicateContentLengthCollapsed, pos,
                     "Duplicate Content-Length values were identical and collapsed.");
+
+                // Use the validated first value (all values are identical)
+                contentLength = long.Parse(first);
                 return null;
             }
 
@@ -1110,6 +1114,7 @@ namespace CsHttp
                 return new ParseError(ParseErrorKind.InvalidContentLength, pos,
                     "Content-Length is not a valid decimal: '" + value + "'");
 
+            contentLength = long.Parse(value);
             return null;
         }
 
