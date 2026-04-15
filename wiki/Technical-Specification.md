@@ -10,7 +10,7 @@ For the project introduction and quick start, see the [README](../README.md).
 
 - [Architecture Overview](#architecture-overview)
 - [Envelope Parser API](#envelope-parser-api)
-  - [CsHttpParser](#cshttpparser)
+  - [HttpParser](#cshttpparser)
   - [ParseResult](#parseresult)
   - [HttpRequestMessage](#httprequestmessage)
   - [HttpResponseMessage](#httpresponsemessage)
@@ -28,7 +28,7 @@ For the project introduction and quick start, see the [README](../README.md).
   - [PercentDecoder](#percentdecoder)
   - [HttpPostedFile and HttpPostedFileCollection](#httppostedfile-and-httppostedfilecollection)
   - [SetCookie and SetCookieCollection](#setcookie-and-setcookiecollection)
-  - [CsHttpResponse](#cshttpresponse)
+  - [HttpResponse](#cshttpresponse)
 - [Configuration](#configuration)
   - [ParserOptions (Envelope)](#parseroptions-envelope)
   - [ContentParserOptions (Content)](#contentparseroptions-content)
@@ -56,7 +56,7 @@ The two layers are connected through lazy properties on `HttpRequestMessage` and
 
 ```
 Layer 1: Envelope (RFC 9112)
-  CsHttpParser.cs ─── ParseRequest() / ParseResponse()
+  HttpParser.cs ─── ParseRequest() / ParseResponse()
   HttpMessage.cs ──── HttpRequestMessage / HttpResponseMessage
   HttpHeaderCollection.cs ── wire-order, case-insensitive
   ParserOptions.cs ── limits, strict/lenient, callbacks
@@ -76,29 +76,29 @@ Layer 2: Content
   HttpPostedFileCollection.cs ── file collection
   SetCookie.cs ──────────── Set-Cookie model
   ContentParserOptions.cs ── content limits and policies
-  CsHttpResponse.cs ── response byte[] builder
+  HttpResponse.cs ── response byte[] builder
 ```
 
 ---
 
 ## Envelope Parser API
 
-### CsHttpParser
+### HttpParser
 
 The static entry point. All state lives in the parse context during a single invocation — the class is thread-safe.
 
 ```csharp
 // Parse a request from the entire buffer
-ParseResult result = CsHttpParser.ParseRequest(byte[] data, ParserOptions options = null);
+ParseResult result = HttpParser.ParseRequest(byte[] data, ParserOptions options = null);
 
 // Parse a request from a region of a buffer (pipelined messages)
-ParseResult result = CsHttpParser.ParseRequest(byte[] data, int offset, int length, ParserOptions options = null);
+ParseResult result = HttpParser.ParseRequest(byte[] data, int offset, int length, ParserOptions options = null);
 
 // Parse a response (requestMethod needed for body framing rules 1-2)
-ParseResult result = CsHttpParser.ParseResponse(byte[] data, string requestMethod = null, ParserOptions options = null);
+ParseResult result = HttpParser.ParseResponse(byte[] data, string requestMethod = null, ParserOptions options = null);
 
 // Parse a response from a region of a buffer
-ParseResult result = CsHttpParser.ParseResponse(byte[] data, int offset, int length, string requestMethod = null, ParserOptions options = null);
+ParseResult result = HttpParser.ParseResponse(byte[] data, int offset, int length, string requestMethod = null, ParserOptions options = null);
 ```
 
 ### ParseResult
@@ -365,28 +365,28 @@ string sameSite = cookie.SameSite;   // "Lax", "Strict", "None"
 string raw      = cookie.RawValue;   // original header value
 ```
 
-### CsHttpResponse
+### HttpResponse
 
 Builds HTTP/1.1 response byte arrays ready for socket writing. Content-Length is auto-calculated.
 
 **One-liner static methods:**
 
 ```csharp
-byte[] resp = CsHttpResponse.Html("<h1>Hello</h1>");
-byte[] resp = CsHttpResponse.Json("{\"ok\":true}");
-byte[] resp = CsHttpResponse.Text("plain text");
-byte[] resp = CsHttpResponse.Bytes(pdfBytes, "application/pdf");
-byte[] resp = CsHttpResponse.Status(204);
-byte[] resp = CsHttpResponse.Status(404);
-byte[] resp = CsHttpResponse.Redirect("/login");             // 302
-byte[] resp = CsHttpResponse.RedirectPermanent("/new-path"); // 301
-byte[] resp = CsHttpResponse.File(pdfBytes, "report.pdf", "application/pdf");
+byte[] resp = HttpResponse.Html("<h1>Hello</h1>");
+byte[] resp = HttpResponse.Json("{\"ok\":true}");
+byte[] resp = HttpResponse.Text("plain text");
+byte[] resp = HttpResponse.Bytes(pdfBytes, "application/pdf");
+byte[] resp = HttpResponse.Status(204);
+byte[] resp = HttpResponse.Status(404);
+byte[] resp = HttpResponse.Redirect("/login");             // 302
+byte[] resp = HttpResponse.RedirectPermanent("/new-path"); // 301
+byte[] resp = HttpResponse.File(pdfBytes, "report.pdf", "application/pdf");
 ```
 
 **Builder pattern:**
 
 ```csharp
-var builder = new CsHttpResponse(200);
+var builder = new HttpResponse(200);
 builder.Header("Content-Type", "text/html; charset=utf-8");
 builder.Header("X-Custom", "value");
 builder.SetCookie("sid", "abc123",
@@ -650,8 +650,8 @@ cshttp uses a two-tier reporting system. Errors are fatal — parsing stops. War
 | RFC 6265 §5.4 | Cookie header parsing | `CookieParser` |
 | RFC 6265 §4.1 | Set-Cookie header parsing | `SetCookieParser` |
 | RFC 6265bis | SameSite attribute | `SetCookie.SameSite` |
-| RFC 9110 §15 | Status codes and reason phrases | `CsHttpResponse.GetDefaultReasonPhrase` |
-| RFC 6266 | Content-Disposition in HTTP | `CsHttpResponse.File()` |
+| RFC 9110 §15 | Status codes and reason phrases | `HttpResponse.GetDefaultReasonPhrase` |
+| RFC 6266 | Content-Disposition in HTTP | `HttpResponse.File()` |
 
 ---
 

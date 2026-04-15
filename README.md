@@ -11,7 +11,7 @@ Every major language has a standalone HTTP parser. C has [llhttp](https://github
 
 C# has no equivalent.
 
-If you need to parse HTTP in .NET today, you either adopt the entire ASP.NET Web Forms, MVC, ASP.NET Core stack (IIS, Kestrel, middleware pipeline, hosting abstractions, dependency injection) — or you write a hand-rolled parser that handles the happy path and silently breaks on chunked encoding, request smuggling, bare CR injection, obs-fold headers, and the other edge cases that RFC 9112 defines precisely and most hand-written parsers ignore.
+If you need to parse HTTP in .NET today, you either adopt the entire ASP.NET stack (Web Forms, MVC, .NET Core, IIS, Kestrel, middleware pipeline, hosting abstractions, dependency injection), or you write a hand-rolled parser that handles the happy path and silently breaks on chunked encoding, request smuggling, bare CR injection, obs-fold headers, and the other edge cases that RFC 9112 defines precisely and most hand-written parsers ignore.
 
 cshttp fills that gap. It is a complete HTTP/1.1 message parser and content toolkit, implemented as plain C# source files you can drop into any project.
 
@@ -31,7 +31,7 @@ byte[] data = Encoding.ASCII.GetBytes(
     "\r\n" +
     "email=user%40mail.com&x=1");
 
-ParseResult result = CsHttpParser.ParseRequest(data);
+ParseResult result = HttpParser.ParseRequest(data);
 HttpRequestMessage req = result.Request;
 
 // --- Envelope (RFC 9112) ---
@@ -60,7 +60,7 @@ byte[] data = Encoding.ASCII.GetBytes(
     "\r\n" +
     "Hello, World!");
 
-ParseResult result = CsHttpParser.ParseResponse(data, "GET");
+ParseResult result = HttpParser.ParseResponse(data, "GET");
 HttpResponseMessage resp = result.Response;
 
 int code       = resp.StatusCode;               // 200
@@ -77,13 +77,13 @@ string sameSite  = cookie.SameSite;             // "Lax"
 
 ```csharp
 // One-liners
-byte[] resp = CsHttpResponse.Html("<h1>Hello</h1>");
-byte[] resp = CsHttpResponse.Json("{\"ok\":true}");
-byte[] resp = CsHttpResponse.Redirect("/login");
-byte[] resp = CsHttpResponse.Status(204);
+byte[] resp = HttpResponse.Html("<h1>Hello</h1>");
+byte[] resp = HttpResponse.Json("{\"ok\":true}");
+byte[] resp = HttpResponse.Redirect("/login");
+byte[] resp = HttpResponse.Status(204);
 
 // Full builder
-var builder = new CsHttpResponse(200);
+var builder = new HttpResponse(200);
 builder.Header("Content-Type", "text/html; charset=utf-8");
 builder.SetCookie("sid", "abc123", maxAge: 3600, httpOnly: true, secure: true, sameSite: "Lax");
 builder.Body("<h1>Hello</h1>");
@@ -93,7 +93,7 @@ byte[] bytes = builder.ToBytes();
 ### Handle Errors and Warnings
 
 ```csharp
-ParseResult result = CsHttpParser.ParseRequest(data);
+ParseResult result = HttpParser.ParseRequest(data);
 
 if (!result.Success)
 {
@@ -144,7 +144,7 @@ Content properties are lazy-parsed — they cost nothing until first access. A d
 | Request cookies | `req.Cookies["name"]` | RFC 6265 Section 5.4 |
 | Response Set-Cookie | `resp.SetCookies["name"]` | RFC 6265 Section 4.1, 6265bis |
 | Percent-decoding | `PercentDecoder.Decode(s)` | RFC 3986 Section 2.1 |
-| Response building | `CsHttpResponse.Html(s)` | RFC 9112 Section 4, RFC 9110 |
+| Response building | `HttpResponse.Html(s)` | RFC 9112 Section 4, RFC 9110 |
 | Combined lookup | `req["key"]` | QueryString → Form → Cookies → Headers |
 
 ### Security
@@ -164,11 +164,11 @@ Both layers enforce configurable limits to defend against common attacks:
 
 ## Installation
 
-cshttp is distributed as source files. Copy the `CsHttpParser` folder from `src/cshttp/` into your project. All 19 files use the `CsHttp` namespace.
+cshttp is distributed as source files. Copy the `cshttp` folder from `src/cshttp/` into your project. All 19 files use the `CsHttp` namespace.
 
 | File | Purpose |
 |------|---------|
-| `CsHttpParser.cs` | Core parser — start-line, headers, body framing |
+| `HttpParser.cs` | Core parser — start-line, headers, body framing |
 | `HttpMessage.cs` | Message models with lazy content properties |
 | `HttpHeaderCollection.cs` | Wire-order headers, case-insensitive access |
 | `ParserOptions.cs` | Envelope parser configuration and callbacks |
@@ -186,7 +186,7 @@ cshttp is distributed as source files. Copy the `CsHttpParser` folder from `src/
 | `HttpPostedFile.cs` | Uploaded file model |
 | `HttpPostedFileCollection.cs` | Uploaded file collection |
 | `SetCookie.cs` | Set-Cookie model with all attributes |
-| `CsHttpResponse.cs` | HTTP response byte array builder |
+| `HttpResponse.cs` | HTTP response byte array builder |
 
 No NuGet packages. No framework references beyond the base class library.
 
@@ -221,7 +221,7 @@ cshttp does not replace ASP.NET Core. It fills a gap that makes ASP.NET Core *op
 
 ## Documentation
 
-For the complete technical specification — full API reference, configuration options, specification coverage tables, content parser details, and security defense documentation — see the **[Technical Specification (Wiki)](../../wiki/Technical-Specification)**.
+For the complete technical specification — full API reference, configuration options, specification coverage tables, content parser details, and security defense documentation — see the **[Technical Specification (Wiki)](https://github.com/adriancs2/cshttp/wiki)**.
 
 ---
 

@@ -13,7 +13,7 @@ namespace CsHttp
     /// <summary>
     /// Builds HTTP/1.1 response messages as byte arrays ready for socket writing.
     /// 
-    /// This is the complement to CsHttpParser. Where the parser turns bytes into
+    /// This is the complement to HttpParser. Where the parser turns bytes into
     /// structured objects, this class turns structured intent back into bytes.
     /// 
     /// Not a framework. Not middleware. Just a byte array assembler that writes
@@ -21,17 +21,17 @@ namespace CsHttp
     /// 
     /// Two usage patterns:
     ///   1. One-liner static methods for common responses:
-    ///      byte[] resp = CsHttpResponse.Html("&lt;h1&gt;Hello&lt;/h1&gt;");
-    ///      byte[] resp = CsHttpResponse.Json("{\"ok\":true}");
-    ///      byte[] resp = CsHttpResponse.Redirect("/login");
+    ///      byte[] resp = HttpResponse.Html("&lt;h1&gt;Hello&lt;/h1&gt;");
+    ///      byte[] resp = HttpResponse.Json("{\"ok\":true}");
+    ///      byte[] resp = HttpResponse.Redirect("/login");
     ///   2. Builder pattern for custom headers and fine-grained control:
-    ///      var resp = new CsHttpResponse(200);
+    ///      var resp = new HttpResponse(200);
     ///      resp.Header("Content-Type", "text/html; charset=utf-8");
     ///      resp.SetCookie("sid", "abc123", httpOnly: true);
     ///      resp.Body("&lt;h1&gt;Hello&lt;/h1&gt;");
     ///      byte[] bytes = resp.ToBytes();
     /// </summary>
-    public sealed class CsHttpResponse
+    public sealed class HttpResponse
     {
         private int _statusCode;
         private string _reasonPhrase;
@@ -45,7 +45,7 @@ namespace CsHttp
         /// <param name="reasonPhrase">
         /// Optional reason phrase. If null, the standard phrase for the status code is used.
         /// </param>
-        public CsHttpResponse(int statusCode, string reasonPhrase = null)
+        public HttpResponse(int statusCode, string reasonPhrase = null)
         {
             _statusCode = statusCode;
             _reasonPhrase = reasonPhrase ?? GetDefaultReasonPhrase(statusCode);
@@ -57,7 +57,7 @@ namespace CsHttp
         /// Adds a header to the response.
         /// Multiple calls with the same name add multiple header lines.
         /// </summary>
-        public CsHttpResponse Header(string name, string value)
+        public HttpResponse Header(string name, string value)
         {
             _headers.Add(new KeyValuePair<string, string>(name, value));
             return this;
@@ -67,7 +67,7 @@ namespace CsHttp
         /// Sets the response body from raw bytes.
         /// Content-Length is automatically calculated in ToBytes().
         /// </summary>
-        public CsHttpResponse Body(byte[] body)
+        public HttpResponse Body(byte[] body)
         {
             _body = body;
             return this;
@@ -77,7 +77,7 @@ namespace CsHttp
         /// Sets the response body from a string (UTF-8 encoded).
         /// Content-Length is automatically calculated in ToBytes().
         /// </summary>
-        public CsHttpResponse Body(string body)
+        public HttpResponse Body(string body)
         {
             _body = body != null ? Encoding.UTF8.GetBytes(body) : null;
             return this;
@@ -86,7 +86,7 @@ namespace CsHttp
         /// <summary>
         /// Adds a Set-Cookie header with the specified attributes.
         /// </summary>
-        public CsHttpResponse SetCookie(
+        public HttpResponse SetCookie(
             string name, string value,
             int? maxAge = null,
             string domain = null,
@@ -192,7 +192,7 @@ namespace CsHttp
         /// </summary>
         public static byte[] Html(string html)
         {
-            return new CsHttpResponse(200)
+            return new HttpResponse(200)
                 .Header("Content-Type", "text/html; charset=utf-8")
                 .Body(html)
                 .ToBytes();
@@ -203,7 +203,7 @@ namespace CsHttp
         /// </summary>
         public static byte[] Json(string json)
         {
-            return new CsHttpResponse(200)
+            return new HttpResponse(200)
                 .Header("Content-Type", "application/json; charset=utf-8")
                 .Body(json)
                 .ToBytes();
@@ -214,7 +214,7 @@ namespace CsHttp
         /// </summary>
         public static byte[] Text(string text)
         {
-            return new CsHttpResponse(200)
+            return new HttpResponse(200)
                 .Header("Content-Type", "text/plain; charset=utf-8")
                 .Body(text)
                 .ToBytes();
@@ -225,7 +225,7 @@ namespace CsHttp
         /// </summary>
         public static byte[] Bytes(byte[] data, string contentType)
         {
-            return new CsHttpResponse(200)
+            return new HttpResponse(200)
                 .Header("Content-Type", contentType)
                 .Body(data)
                 .ToBytes();
@@ -236,7 +236,7 @@ namespace CsHttp
         /// </summary>
         public static byte[] Status(int statusCode)
         {
-            return new CsHttpResponse(statusCode)
+            return new HttpResponse(statusCode)
                 .ToBytes();
         }
 
@@ -245,7 +245,7 @@ namespace CsHttp
         /// </summary>
         public static byte[] Redirect(string url)
         {
-            return new CsHttpResponse(302)
+            return new HttpResponse(302)
                 .Header("Location", url)
                 .ToBytes();
         }
@@ -255,7 +255,7 @@ namespace CsHttp
         /// </summary>
         public static byte[] RedirectPermanent(string url)
         {
-            return new CsHttpResponse(301)
+            return new HttpResponse(301)
                 .Header("Location", url)
                 .ToBytes();
         }
@@ -266,7 +266,7 @@ namespace CsHttp
         /// </summary>
         public static byte[] File(byte[] data, string fileName, string contentType)
         {
-            return new CsHttpResponse(200)
+            return new HttpResponse(200)
                 .Header("Content-Type", contentType)
                 .Header("Content-Disposition", "attachment; filename=\"" + fileName + "\"")
                 .Body(data)

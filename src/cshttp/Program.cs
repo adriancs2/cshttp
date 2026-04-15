@@ -121,7 +121,7 @@ namespace CsHttp
         {
             Section("Section 2.1 — Basic GET Request");
             var data = B("GET /index.html HTTP/1.1\r\nHost: example.com\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.IsRequest, "Is a request");
@@ -139,7 +139,7 @@ namespace CsHttp
         {
             Section("Section 2.1 — POST Request with Body");
             var data = B("POST /submit HTTP/1.1\r\nHost: example.com\r\nContent-Length: 11\r\n\r\nHello World");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Method == "POST", "Method is POST");
@@ -154,7 +154,7 @@ namespace CsHttp
         {
             Section("Section 2.2 — Leading Empty Lines");
             var data = B("\r\n\r\nGET / HTTP/1.1\r\nHost: x\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds with leading CRLFs");
             Assert(result.Warnings.Count > 0, "Warning issued for leading empty lines");
@@ -164,7 +164,7 @@ namespace CsHttp
         {
             Section("Section 2.2 — Bare LF Tolerated");
             var data = B("GET / HTTP/1.1\nHost: x\n\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds with bare LF");
             Assert(result.Request.Method == "GET", "Method parsed correctly");
@@ -175,7 +175,7 @@ namespace CsHttp
             Section("Section 2.2 — Bare CR in Header (strict)");
             var data = B("GET / HTTP/1.1\r\nHost: ex\rample.com\r\n\r\n");
             var opts = ParserOptions.Strict;
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(!result.Success, "Strict mode rejects bare CR in header value");
             Assert(result.Error.Kind == ParseErrorKind.BareCR, "Error is BareCR");
@@ -186,7 +186,7 @@ namespace CsHttp
             Section("Section 2.2 — Whitespace After Start-line (strict)");
             var data = B("GET / HTTP/1.1\r\n Host: x\r\n\r\n");
             var opts = ParserOptions.Strict;
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(!result.Success, "Strict mode rejects whitespace after start-line");
         }
@@ -196,7 +196,7 @@ namespace CsHttp
             Section("Section 2.2 — Whitespace After Start-line (lenient)");
             var data = B("GET / HTTP/1.1\r\n garbage line\r\nHost: x\r\n\r\n");
             var opts = new ParserOptions { StrictMode = false };
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(result.Success, "Lenient mode consumes whitespace-preceded lines");
             Assert(result.Request.Headers["Host"] == "x", "Host header parsed after skipped line");
@@ -208,7 +208,7 @@ namespace CsHttp
         {
             Section("Section 2.3 — HTTP Version Validation");
             var data = B("GET / HTTZ/1.1\r\nHost: x\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(!result.Success, "Rejects invalid HTTP-name");
             Assert(result.Error.Kind == ParseErrorKind.InvalidVersion, "Error is InvalidVersion");
@@ -218,7 +218,7 @@ namespace CsHttp
         {
             Section("Section 2.3 — HTTP/1.0 Version");
             var data = B("GET / HTTP/1.0\r\nHost: x\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Accepts HTTP/1.0");
             Assert(result.Request.VersionMajor == 1, "Major version 1");
@@ -231,7 +231,7 @@ namespace CsHttp
         {
             Section("Section 3 — Request Line Parsing");
             var data = B("DELETE /resource/42 HTTP/1.1\r\nHost: api.example.com\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Method == "DELETE", "Method is DELETE");
@@ -242,7 +242,7 @@ namespace CsHttp
         {
             Section("Section 3.1 — Method is Case-Sensitive");
             var data = B("get / HTTP/1.1\r\nHost: x\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Lowercase method is valid token");
             Assert(result.Request.Method == "get", "Method preserved as 'get' (case-sensitive)");
@@ -254,7 +254,7 @@ namespace CsHttp
         {
             Section("Section 3.2.1 — Origin Form");
             var data = B("GET /where?q=now HTTP/1.1\r\nHost: www.example.org\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.RequestTarget == "/where?q=now", "Target correct");
@@ -265,7 +265,7 @@ namespace CsHttp
         {
             Section("Section 3.2.2 — Absolute Form");
             var data = B("GET http://www.example.org/pub/WWW/TheProject.html HTTP/1.1\r\nHost: www.example.org\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.RequestTargetForm == RequestTargetForm.Absolute, "Form is Absolute");
@@ -275,7 +275,7 @@ namespace CsHttp
         {
             Section("Section 3.2.3 — Authority Form");
             var data = B("CONNECT www.example.com:80 HTTP/1.1\r\nHost: www.example.com\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.RequestTargetForm == RequestTargetForm.Authority, "Form is Authority");
@@ -285,7 +285,7 @@ namespace CsHttp
         {
             Section("Section 3.2.4 — Asterisk Form");
             var data = B("OPTIONS * HTTP/1.1\r\nHost: www.example.org\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.RequestTarget == "*", "Target is *");
@@ -298,7 +298,7 @@ namespace CsHttp
         {
             Section("Section 4 — Basic Status Line");
             var data = B("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello");
-            var result = CsHttpParser.ParseResponse(data, "GET");
+            var result = HttpParser.ParseResponse(data, "GET");
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.IsResponse, "Is a response");
@@ -312,7 +312,7 @@ namespace CsHttp
         {
             Section("Section 4 — Status Line Without Reason Phrase");
             var data = B("HTTP/1.1 200 \r\nContent-Length: 0\r\n\r\n");
-            var result = CsHttpParser.ParseResponse(data, "GET");
+            var result = HttpParser.ParseResponse(data, "GET");
 
             Assert(result.Success, "Parse succeeds with empty reason phrase");
             Assert(result.Response.StatusCode == 200, "Status code is 200");
@@ -323,7 +323,7 @@ namespace CsHttp
         {
             Section("Section 4 — 404 Not Found Response");
             var data = B("HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\n\r\nNot Found");
-            var result = CsHttpParser.ParseResponse(data, "GET");
+            var result = HttpParser.ParseResponse(data, "GET");
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Response.StatusCode == 404, "Status code is 404");
@@ -336,7 +336,7 @@ namespace CsHttp
         {
             Section("Section 5 — Header Parsing");
             var data = B("GET / HTTP/1.1\r\nHost: example.com\r\nAccept: text/html\r\nX-Custom: value123\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Headers.Count == 3, "3 headers parsed");
@@ -348,7 +348,7 @@ namespace CsHttp
         {
             Section("Section 5 — Case-Insensitive Header Access");
             var data = B("GET / HTTP/1.1\r\nhost: example.com\r\nCONTENT-TYPE: text/plain\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Headers["HOST"] == "example.com", "Case-insensitive lookup works");
@@ -359,7 +359,7 @@ namespace CsHttp
         {
             Section("Section 5 — Multiple Headers Same Name");
             var data = B("GET / HTTP/1.1\r\nHost: x\r\nSet-Cookie: a=1\r\nSet-Cookie: b=2\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Headers.GetValues("Set-Cookie").Length == 2, "Two Set-Cookie values");
@@ -370,7 +370,7 @@ namespace CsHttp
         {
             Section("Section 5.1 — Whitespace Before Colon Rejected");
             var data = B("GET / HTTP/1.1\r\nHost : example.com\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(!result.Success, "Rejects whitespace before colon");
             Assert(result.Error.Kind == ParseErrorKind.WhitespaceBeforeColon, "Error is WhitespaceBeforeColon");
@@ -380,7 +380,7 @@ namespace CsHttp
         {
             Section("Section 5.1 — OWS Trimming");
             var data = B("GET / HTTP/1.1\r\nHost:   example.com   \r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Headers["Host"] == "example.com", "Leading/trailing OWS trimmed");
@@ -392,7 +392,7 @@ namespace CsHttp
         {
             Section("Section 5.2 — Obs-fold Rejected (default)");
             var data = B("GET / HTTP/1.1\r\nHost: example.com\r\nX-Long: value\r\n continued\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(!result.Success, "Default rejects obs-fold");
             Assert(result.Error.Kind == ParseErrorKind.ObsoleteLineFolding, "Error is ObsoleteLineFolding");
@@ -403,7 +403,7 @@ namespace CsHttp
             Section("Section 5.2 — Obs-fold Replaced (lenient)");
             var data = B("GET / HTTP/1.1\r\nHost: example.com\r\nX-Long: value\r\n continued\r\n\r\n");
             var opts = new ParserOptions { RejectObsoleteLineFolding = false };
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(result.Success, "Lenient mode accepts obs-fold");
             Assert(result.Request.Headers["X-Long"].Contains("value"), "Value contains original part");
@@ -417,7 +417,7 @@ namespace CsHttp
             Section("Section 6.2 — Content-Length Body");
             var body = "Hello, World!";
             var data = B("POST /api HTTP/1.1\r\nHost: x\r\nContent-Length: " + body.Length + "\r\n\r\n" + body);
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Body != null, "Body is present");
@@ -429,7 +429,7 @@ namespace CsHttp
         {
             Section("Section 6.2 — Zero Content-Length");
             var data = B("POST /api HTTP/1.1\r\nHost: x\r\nContent-Length: 0\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Body == null, "Body is null for zero CL");
@@ -439,7 +439,7 @@ namespace CsHttp
         {
             Section("Section 6.3 Rule 7 — No Body on Request Without CL/TE");
             var data = B("GET / HTTP/1.1\r\nHost: x\r\n\r\n");
-            var result = CsHttpParser.ParseRequest(data);
+            var result = HttpParser.ParseRequest(data);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Body == null, "No body");
@@ -452,7 +452,7 @@ namespace CsHttp
         {
             Section("Section 6.3 Rule 1 — HEAD Response Has No Body");
             var data = B("HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n");
-            var result = CsHttpParser.ParseResponse(data, "HEAD");
+            var result = HttpParser.ParseResponse(data, "HEAD");
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Response.Body == null, "No body on HEAD response");
@@ -463,7 +463,7 @@ namespace CsHttp
         {
             Section("Section 6.3 Rule 1 — 204 No Content");
             var data = B("HTTP/1.1 204 No Content\r\n\r\n");
-            var result = CsHttpParser.ParseResponse(data, "GET");
+            var result = HttpParser.ParseResponse(data, "GET");
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Response.Body == null, "No body on 204");
@@ -473,7 +473,7 @@ namespace CsHttp
         {
             Section("Section 6.3 Rule 1 — 304 Not Modified");
             var data = B("HTTP/1.1 304 Not Modified\r\n\r\n");
-            var result = CsHttpParser.ParseResponse(data, "GET");
+            var result = HttpParser.ParseResponse(data, "GET");
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Response.Body == null, "No body on 304");
@@ -483,7 +483,7 @@ namespace CsHttp
         {
             Section("Section 6.3 Rule 1 — 100 Continue");
             var data = B("HTTP/1.1 100 Continue\r\n\r\n");
-            var result = CsHttpParser.ParseResponse(data, "POST");
+            var result = HttpParser.ParseResponse(data, "POST");
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Response.Body == null, "No body on 100");
@@ -494,7 +494,7 @@ namespace CsHttp
             Section("Section 6.3 Rule 3 — Conflicting TE and CL (strict)");
             var data = B("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\nContent-Length: 5\r\n\r\n0\r\n\r\n");
             var opts = new ParserOptions { RejectConflictingFraming = true };
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(!result.Success, "Strict mode rejects conflicting TE + CL");
             Assert(result.Error.Kind == ParseErrorKind.ConflictingFraming, "Error is ConflictingFraming");
@@ -519,7 +519,7 @@ namespace CsHttp
                 "0\r\n" +
                 "\r\n");
             var opts = new ParserOptions { RejectConflictingFraming = true };
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.BodyFraming == BodyFrameKind.Chunked, "Framing is Chunked");
@@ -541,7 +541,7 @@ namespace CsHttp
                 "X-Checksum: abc123\r\n" +
                 "\r\n");
             var opts = new ParserOptions { RejectConflictingFraming = true };
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(result.Success, "Parse succeeds");
             string body = Encoding.ASCII.GetString(result.Request.Body);
@@ -561,7 +561,7 @@ namespace CsHttp
                 "0\r\n" +
                 "\r\n");
             var opts = new ParserOptions { RejectConflictingFraming = true };
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(result.Success, "Parse succeeds");
             Assert(result.Request.Body.Length == 0, "Body is empty (zero-length)");
@@ -579,7 +579,7 @@ namespace CsHttp
             sb.Append("\r\n");
 
             var opts = new ParserOptions { MaxHeaderCount = 5 };
-            var result = CsHttpParser.ParseRequest(B(sb.ToString()), opts);
+            var result = HttpParser.ParseRequest(B(sb.ToString()), opts);
 
             Assert(!result.Success, "Rejects when header count exceeds limit");
             Assert(result.Error.Kind == ParseErrorKind.TooManyHeaders, "Error is TooManyHeaders");
@@ -591,7 +591,7 @@ namespace CsHttp
             string longTarget = "/" + new string('a', 100);
             var data = B("GET " + longTarget + " HTTP/1.1\r\nHost: x\r\n\r\n");
             var opts = new ParserOptions { MaxStartLineLength = 50 };
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(!result.Success, "Rejects oversized start-line");
             Assert(result.Error.Kind == ParseErrorKind.StartLineTooLong, "Error is StartLineTooLong");
@@ -609,7 +609,7 @@ namespace CsHttp
                     return !name.Equals("X-Evil", StringComparison.OrdinalIgnoreCase);
                 }
             };
-            var result = CsHttpParser.ParseRequest(data, opts);
+            var result = HttpParser.ParseRequest(data, opts);
 
             Assert(!result.Success, "Callback rejects the message");
             Assert(result.Error.Kind == ParseErrorKind.RejectedByCallback, "Error is RejectedByCallback");
@@ -624,13 +624,13 @@ namespace CsHttp
             string msg2 = "GET /second HTTP/1.1\r\nHost: x\r\n\r\n";
             var data = B(msg1 + msg2);
 
-            var result1 = CsHttpParser.ParseRequest(data);
+            var result1 = HttpParser.ParseRequest(data);
             Assert(result1.Success, "First request parses");
             Assert(result1.Request.RequestTarget == "/first", "First target is /first");
             Assert(result1.BytesConsumed == msg1.Length, "BytesConsumed matches first message length");
 
             // Parse second message starting where the first ended
-            var result2 = CsHttpParser.ParseRequest(data, result1.BytesConsumed, data.Length - result1.BytesConsumed);
+            var result2 = HttpParser.ParseRequest(data, result1.BytesConsumed, data.Length - result1.BytesConsumed);
             Assert(result2.Success, "Second request parses");
             Assert(result2.Request.RequestTarget == "/second", "Second target is /second");
         }

@@ -43,13 +43,25 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CsHttpParser\CsHttpParser.cs" />
-    <Compile Include="CsHttpParser\HttpHeaderCollection.cs" />
-    <Compile Include="CsHttpParser\HttpMessage.cs" />
-    <Compile Include="CsHttpParser\ParseError.cs" />
-    <Compile Include="CsHttpParser\ParseResult.cs" />
-    <Compile Include="CsHttpParser\ParserOptions.cs" />
-    <Compile Include="CsHttpParser\ParseWarning.cs" />
+    <Compile Include="cshttp\ContentParserOptions.cs" />
+    <Compile Include="cshttp\CookieParser.cs" />
+    <Compile Include="cshttp\HttpParser.cs" />
+    <Compile Include="cshttp\HttpResponse.cs" />
+    <Compile Include="cshttp\FormParser.cs" />
+    <Compile Include="cshttp\HttpContentCollection.cs" />
+    <Compile Include="cshttp\HttpHeaderCollection.cs" />
+    <Compile Include="cshttp\HttpMessage.cs" />
+    <Compile Include="cshttp\HttpPostedFile.cs" />
+    <Compile Include="cshttp\HttpPostedFileCollection.cs" />
+    <Compile Include="cshttp\MultipartParser.cs" />
+    <Compile Include="cshttp\ParseError.cs" />
+    <Compile Include="cshttp\ParseResult.cs" />
+    <Compile Include="cshttp\ParserOptions.cs" />
+    <Compile Include="cshttp\ParseWarning.cs" />
+    <Compile Include="cshttp\PercentDecoder.cs" />
+    <Compile Include="cshttp\QueryStringParser.cs" />
+    <Compile Include="cshttp\SetCookie.cs" />
+    <Compile Include="cshttp\SetCookieParser.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

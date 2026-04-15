@@ -13,7 +13,7 @@ namespace CsHttp
     /// Thread-safety: instances are stateless. The static methods are thread-safe.
     /// All state lives in the ParseContext during a single parse invocation.
     /// </summary>
-    public static class CsHttpParser
+    public static class HttpParser
     {
         // ASCII constants
         private const byte CR = 0x0D;
