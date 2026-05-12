@@ -5,6 +5,10 @@
 
 ---
 
+## Demo Project
+
+- [Queue Management System - C# Console App - Self-contained Web Server](https://github.com/adriancs2/Queue-Management-System)
+
 ## The Gap
 
 Every major language has a standalone HTTP parser. C has [llhttp](https://github.com/nicholascc/llhttp) (the engine inside Node.js). Rust has [httparse](https://github.com/seanmonstar/httparse). Python has [httptools](https://github.com/MagicStack/httptools). These are small, focused libraries — you give them bytes, they give you back structured data. No framework required.
