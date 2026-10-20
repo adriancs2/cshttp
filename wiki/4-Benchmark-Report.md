@@ -22,7 +22,7 @@ Should a standalone C# web server use:
 To move beyond theoretical debate, we built a reproducible stress-test benchmark suite to push each TCP listening and connection-handling strategy to its breaking point and measure the exact throughput (Requests/sec), tail latency (`p99`), OS thread footprint, and memory consumption.
 
 > **Reproducible Benchmark Source Code:**  
-> All numbers and findings in this report were produced by the benchmark suite in [`benchmark-test/`](./benchmark-test/) *(see repository subfolder for `cshttp.Benchmark.csproj`, `Program.cs`, `Adapters.cs`, and `AlphaServerEngine.cs`)*.
+> All numbers and findings in this report were produced by the benchmark suite in [`benchmark-test`](https://github.com/adriancs2/cshttp/tree/main/tests/benchmark-test) *(see repository subfolder for `cshttp.Benchmark.csproj`, `Program.cs`, `Adapters.cs`, and `AlphaServerEngine.cs`)*.
 
 ---
 
