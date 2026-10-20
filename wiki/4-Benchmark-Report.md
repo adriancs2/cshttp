@@ -1,4 +1,4 @@
-﻿# The Benchmark Reports of Different Strategies to Handle the Listening of HTTP Requests That Shape the Architecture Decision for `cshttp.server`
+# The Benchmark Reports of Different Strategies to Handle the Listening of HTTP Requests That Shape the Architecture Decision for `cshttp.server`
 
 > A Stress-Test & Architecture White Paper for `cshttp.server` 1.0
 
@@ -6,7 +6,7 @@
 
 ## 0. What is `cshttp.server`?
 
-**`cshttp.server`** is a lightweight, zero-dependency, self-contained HTTP/1.1 web server written in pure C# 7.3 that compiles directly into any `.NET Framework 4.8` or `.NET 8 / .NET 10+` Console Application or Windows/Linux Service—requiring **no IIS, no Kestrel, no ASP.NET Core hosting pipeline, and zero external NuGet packages**. Built on top of `cshttp` (an RFC 9112 byte-level HTTP/1.1 wire parser with built-in request-smuggling and Slowloris guards) and `cshttp.web` (a drop-in `System.Web`-compatible `HttpContext.Current`, `HttpRequest`, `HttpResponse`, and `HostingEnvironment` surface), `cshttp.server` allows developers to port classic Pageless ASP.NET Web Forms applications or build brand-new standalone C# web applications with a simple `switch (path)` router and synchronous request handlers.
+**`cshttp.server`** is a lightweight, zero-dependency, self-contained HTTP/1.1 web server written in pure C# 7.3 that compiles directly into any `.NET Framework 4.8` or `.NET 8 / .NET 10+` Console Application or Windows/Linux Service—requiring **no IIS, no Kestrel, no ASP.NET Core hosting pipeline, and zero external NuGet packages**. Built on top of `cshttp` (an RFC 9112 byte-level HTTP/1.1 wire parser with built-in request-smuggling and Slowloris guards) and `cshttp.web` (a drop-in `System.Web`-compatible `HttpContext.Current`, `HttpRequest`, `HttpResponse`, and `HostingEnvironment` surface), `cshttp.server` allows developers to build standalone C# web applications and APIs with a simple `switch (path)` router and synchronous request handlers.
 
 ---
 
@@ -45,7 +45,7 @@ When benchmarking web server architectures on a 64-core server, hardware abundan
 
 ---
 
-## 3. The Three Contenders: Architectural Breakdown
+## 3. The Three Contenders: Architectural Breakdown & Code Concepts
 
 All three server engines share the exact same RFC 9112 byte-level HTTP/1.1 parser (`cshttp`), the same `System.Web`-compatible `HttpContext.Current` (`AsyncLocal<HttpContext>`) context model (`cshttp.web`), and the same synchronous application handler (`Action<HttpContext>`). They differ **only** in how they accept TCP connections and schedule socket I/O:
 
@@ -56,6 +56,167 @@ All three server engines share the exact same RFC 9112 byte-level HTTP/1.1 parse
 | **Idle Keep-Alive State** | **Holds the 1 MB OS thread** blocked in `_stream.Read()` for up to 60s (`KeepAliveTimeout`) | `await stream.ReadAsync()` (0 threads while idle in `2b`; socket closed after 1st request in `2a`) | **Zero threads held while idle**; lightweight timer sweeps expired deadlines |
 | **Active Request Execution** | 100% Synchronous (`Read` → `Parse` → `Handler` → `Flush`) on the connection's dedicated thread | `await ReadAsync` → Sync `Parse` + `Handler` → `await WriteAsync` (allocates `Task` state machines) | **IOCP callback hands off to ThreadPool Worker** → runs 100% synchronously + drains `_socket.Available > 0` |
 | **Default Connection Cap** | `MaxConnections = 1,000` (hard wall to prevent OS thread exhaustion) | Limited by `ThreadPool` / RAM | `MaxConnections = 10,000` |
+
+### 3.1 Strategy 1 Concept Demo: 1 Dedicated OS Thread per Connection (`cshttp.server.alpha.1.0`)
+
+```csharp
+// Strategy 1 Concept: 1 Dedicated OS Thread per TCP Connection
+void AcceptLoop(Socket listener)
+{
+    while (!_stopping)
+    {
+        Socket client = listener.Accept();
+        if (_activeConnections >= _maxConnections)
+        {
+            client.Close(); // Hard wall: refuses connections once MaxConnections (1000) is reached
+            continue;
+        }
+
+        var conn = new AlphaConnection(this, client);
+        // Spawns a dedicated 1 MB OS thread for the entire lifetime of the TCP socket
+        new Thread(conn.Run) { IsBackground = true }.Start();
+    }
+}
+
+void Run() // Runs on the dedicated per-connection OS thread
+{
+    using (_stream = new NetworkStream(_socket, ownsSocket: true))
+    {
+        while (!_stopping)
+        {
+            // BLOCKS this OS thread for up to 60s while waiting for the next Keep-Alive request!
+            _socket.ReceiveTimeout = (int)_keepAliveTimeout.TotalMilliseconds;
+            int n = _stream.Read(_buf, _end, _buf.Length - _end);
+            if (n <= 0) break;
+            _end += n;
+
+            // Synchronously parse head, read body, run handler, and flush response
+            if (!ProcessRequestSynchronously()) break;
+        }
+    }
+}
+```
+
+### 3.2 Strategy 2 Concept Demo: Async `TcpListener` + `Task.Run` + `async/await` Stream I/O
+
+```csharp
+// Strategy 2 Concept: AcceptTcpClientAsync + Task.Run + Async Stream I/O
+async Task AcceptLoopAsync(CancellationToken ct)
+{
+    while (!ct.IsCancellationRequested)
+    {
+        TcpClient client = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
+
+        // Dispatch connection loop onto the .NET ThreadPool via async Task state machine
+        _ = Task.Run(async () =>
+        {
+            using (client)
+            using (NetworkStream stream = client.GetStream())
+            {
+                byte[] buf = new byte[16 * 1024];
+                int start = 0, end = 0;
+
+                while (!ct.IsCancellationRequested)
+                {
+                    // 1. Async wait for request header bytes (0 threads held while idle)
+                    HttpRequestHead head;
+                    while (!TryParseHead(buf, ref start, end, out head))
+                    {
+                        int n = await stream.ReadAsync(buf, end, buf.Length - end, ct).ConfigureAwait(false);
+                        if (n <= 0) return;
+                        end += n;
+                    }
+
+                    // 2. Async read of request body (if Content-Length > 0)
+                    byte[] body = await ReadBodyAsync(stream, head, buf, ref start, ref end, ct).ConfigureAwait(false);
+
+                    // 3. Synchronous application handler execution
+                    var sink = new MemorySink();
+                    var ctx  = new HttpContext(new HttpRequest(head, body), new HttpResponse(sink, head));
+                    HttpContext.Current = ctx;
+                    try { _handler(ctx); }
+                    finally { HttpContext.Current = null; }
+
+                    bool keepAlive = ctx.Response.Complete();
+
+                    // 4. Async flush of response bytes
+                    await stream.WriteAsync(sink.Buffer, 0, sink.Length, ct).ConfigureAwait(false);
+
+                    if (!_allowKeepAlive || !keepAlive || !head.KeepAlive) break;
+                }
+            }
+        });
+    }
+}
+```
+
+### 3.3 Strategy 3 Concept Demo: Hybrid Zero-Thread IOCP Idle State + Synchronous Worker Burst Loop (`cshttp.server` 1.0)
+
+```csharp
+// Strategy 3 Concept: Zero-Thread IOCP Idle Wait + IOCP-to-Worker Hand-Off + Sync Burst Loop
+void ArmIdleRead()
+{
+    _start = _end = 0;
+    _idleDeadlineTicks = Now() + ToTicks(_served == 0 ? _o.RequestHeadersTimeout : _o.KeepAliveTimeout);
+    _idle = true;
+
+    // 1. Register OS IOCP async read for the first packet; holds 0 threads while idle!
+    IAsyncResult ar = _stream.BeginRead(_buf, 0, _buf.Length, OnFirstReadCallback, this);
+    if (ar.CompletedSynchronously)
+    {
+        CompleteFirstRead(ar);
+    }
+}
+
+static void OnFirstReadComplete(IAsyncResult ar)
+{
+    if (!ar.CompletedSynchronously)
+    {
+        ((Connection)ar.AsyncState).CompleteFirstRead(ar);
+    }
+}
+
+void CompleteFirstRead(IAsyncResult ar)
+{
+    _idle = false;
+    int n = _stream.EndRead(ar);
+    if (n <= 0) { Close(); return; }
+    _end = n;
+
+    // 2. Immediately hand off from the OS IOCP thread to a ThreadPool Worker thread
+    //    so synchronous DB/file handlers NEVER block IOCP network completions!
+    ThreadPool.QueueUserWorkItem(OnRunActiveWorkerCallback, this);
+}
+
+void RunActiveWorker() // Runs on a ThreadPool Worker thread
+{
+    while (!_server.IsStopping)
+    {
+        // 3. 100% synchronous ParseHead -> ReadBody -> Handler(ctx) -> Flush (zero Task allocations)
+        if (!ProcessRequestSynchronously()) { Close(); return; }
+        _served++;
+
+        // If pipelined bytes are already in _buf, loop immediately on this hot worker thread
+        if (_start < _end) continue;
+
+        // Fast check: if the next Keep-Alive request is already in the OS socket buffer,
+        // read and serve it synchronously right here without an IOCP round-trip!
+        if (_socket.Available > 0)
+        {
+            _start = _end = 0;
+            int n = _stream.Read(_buf, 0, _buf.Length);
+            if (n > 0) { _end = n; continue; }
+            Close();
+            return;
+        }
+
+        // Socket is genuinely idle: release the worker thread and re-arm zero-thread IOCP wait
+        break;
+    }
+
+    ArmIdleRead();
+}
+```
 
 ---
 
