@@ -8,11 +8,9 @@ namespace HearthFileManager.RH
 {
     public class AiPageApi
     {
-        static HttpRequest Req => HttpContext.Current.Request;
-
         public static void HandleRequest()
         {
-            string action = (Req["action"] + "").ToLower().Trim();
+            string action = (Request.Params["action"] + "").ToLower().Trim();
             try
             {
                 switch (action)
@@ -39,7 +37,7 @@ namespace HearthFileManager.RH
             obConfig cfg = AppConfig.Get();
             if (string.IsNullOrWhiteSpace(cfg.GeminiApiKey)) throw new FsException("No Gemini API key yet. Add one on the Settings page.");
 
-            var form = Req.Unvalidated.Form;
+            var form = Request.Unvalidated.Form;
             string message = (form["message"] ?? "").Trim();
             JArray history = string.IsNullOrEmpty(form["history"]) ? new JArray() : JArray.Parse(form["history"]);
             JArray images = string.IsNullOrEmpty(form["images"]) ? new JArray() : JArray.Parse(form["images"]);
@@ -63,10 +61,10 @@ namespace HearthFileManager.RH
 
         static void Poll()
         {
-            AiTask task = AiTaskManager.Get(Req["taskId"]);
+            AiTask task = AiTaskManager.Get(Request.Params["taskId"]);
             if (task == null) throw new FsException("This request is no longer running (the server may have restarted). Please send your message again.");
             int since;
-            int.TryParse(Req["since"], out since);
+            int.TryParse(Request.Params["since"], out since);
 
             var events = task.EventsSince(since);
             object result = null;
@@ -89,14 +87,14 @@ namespace HearthFileManager.RH
 
         static void Stop()
         {
-            AiTask task = AiTaskManager.Get(Req.Form["taskId"]);
+            AiTask task = AiTaskManager.Get(Request.Form["taskId"]);
             if (task != null) task.Cancel.Cancel();
             ApiHelper.WriteSuccess("Stopping…");
         }
 
         static void Undo()
         {
-            var restored = AiUndo.Undo(FsService.ForUser(AppSession.LoginUser), Req.Form["undoId"]);
+            var restored = AiUndo.Undo(FsService.ForUser(AppSession.LoginUser), Request.Form["undoId"]);
             ApiHelper.WriteSuccess($"Undone. {restored.Count} item(s) restored.", restored);
         }
     }

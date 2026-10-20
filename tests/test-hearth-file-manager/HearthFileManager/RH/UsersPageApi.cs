@@ -9,11 +9,9 @@ namespace HearthFileManager.RH
 {
     public class UsersPageApi
     {
-        static HttpRequest Req => HttpContext.Current.Request;
-
         public static void HandleRequest()
         {
-            string action = (Req["action"] + "").ToLower().Trim();
+            string action = (Request.Params["action"] + "").ToLower().Trim();
             try
             {
                 switch (action)
@@ -56,14 +54,14 @@ namespace HearthFileManager.RH
 
         static string ValidPassword()
         {
-            string pwd = Req.Unvalidated.Form["password"] ?? "";
+            string pwd = Request.Unvalidated.Form["password"] ?? "";
             if (pwd.Length < 8) throw new GuardException("The password must be at least 8 characters.", 400);
             return pwd;
         }
 
         static List<string> PostedPermissions()
         {
-            string json = Req.Form["permissions"];
+            string json = Request.Form["permissions"];
             if (string.IsNullOrEmpty(json)) return new List<string>(Perm.NewUserDefault);
             return Perm.Normalize(JsonConvert.DeserializeObject<List<string>>(json));
         }
@@ -78,7 +76,7 @@ namespace HearthFileManager.RH
             // a full path set in config.json is locked: keep it, whatever the browser sent
             if (existing != null && AppConfig.IsAbsoluteSetting(existing.RootPath)) return existing.RootPath;
 
-            string root = AppConfig.NormalizePathSetting(Req.Form["root"]);
+            string root = AppConfig.NormalizePathSetting(Request.Form["root"]);
             string full;
             try { full = AppConfig.ResolvePath(root, AppConfig.MainRoot()); }
             catch (Exception ex) { ApiHelper.WriteError("Invalid root folder: " + ex.Message); return null; }
@@ -91,7 +89,7 @@ namespace HearthFileManager.RH
 
         static void Add()
         {
-            string username = (Req.Form["username"] + "").Trim();
+            string username = (Request.Form["username"] + "").Trim();
             if (!Regex.IsMatch(username, "^[A-Za-z0-9._@-]{3,40}$")) { ApiHelper.WriteError("Username: 3–40 letters, numbers, dot, dash, underscore or @."); return; }
             if (AppConfig.FindUser(username) != null) { ApiHelper.WriteError("That username is already taken."); return; }
             string hash = AppConfig.HashPassword(ValidPassword());
@@ -105,7 +103,7 @@ namespace HearthFileManager.RH
         /// <summary>Admin password reset (no current password needed). The user is signed out everywhere.</summary>
         static void Password()
         {
-            obUser u = AppConfig.FindUser(Req.Form["username"] + "");
+            obUser u = AppConfig.FindUser(Request.Form["username"] + "");
             if (u == null) { ApiHelper.WriteError("User not found", 404); return; }
             string hash = AppConfig.HashPassword(ValidPassword());
             AppConfig.Update(c => { foreach (obUser x in c.Users) if (x.Username == u.Username) x.PasswordHash = hash; });
@@ -115,7 +113,7 @@ namespace HearthFileManager.RH
 
         static void Permissions()
         {
-            obUser u = AppConfig.FindUser(Req.Form["username"] + "");
+            obUser u = AppConfig.FindUser(Request.Form["username"] + "");
             if (u == null) { ApiHelper.WriteError("User not found", 404); return; }
             List<string> perms = PostedPermissions();
 
@@ -135,7 +133,7 @@ namespace HearthFileManager.RH
 
         static void Delete()
         {
-            string username = Req.Form["username"] + "";
+            string username = Request.Form["username"] + "";
             if (IsMe(username)) { ApiHelper.WriteError("You cannot delete your own account."); return; }
             obUser u = AppConfig.FindUser(username);
             if (u == null) { ApiHelper.WriteError("User not found", 404); return; }

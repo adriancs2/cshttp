@@ -9,7 +9,7 @@ namespace HearthFileManager.RH
     {
         public static void HandleRequest()
         {
-            if (AppSession.IsLoggedIn) { HttpContext.Current.Response.Redirect("/files", false); ApiHelper.EndResponse(); return; }
+            if (AppSession.IsLoggedIn) { Response.Redirect("/files", false); ApiHelper.EndResponse(); return; }
 
             var pt = new PageTemplate { Title = "Sign in", BodyClass = "page-login", ShowSidebar = false };
             pt.ExtraFooterText = StaticAsset.Script("/js/login.js");

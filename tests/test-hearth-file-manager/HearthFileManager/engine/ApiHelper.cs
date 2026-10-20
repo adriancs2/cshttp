@@ -6,9 +6,6 @@ namespace System
 {
     public static class ApiHelper
     {
-        static HttpResponse Response => HttpContext.Current.Response;
-        static HttpRequest Request => HttpContext.Current.Request;
-
         public static string GetBaseUrl()
         {
             Uri url = Request.Url;
@@ -37,7 +34,7 @@ namespace System
             Response.TrySkipIisCustomErrors = true;
             try { Response.Flush(); } catch { }
             Response.SuppressContent = true;
-            HttpContext.Current.ApplicationInstance.CompleteRequest();
+            Response.CompleteRequest();
         }
     }
 }

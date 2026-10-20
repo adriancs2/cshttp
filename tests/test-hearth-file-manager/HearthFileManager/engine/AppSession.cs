@@ -38,8 +38,7 @@ namespace HearthFileManager.engine
         /// <summary>Runs at BeginRequest: resolves the cookie into HttpContext.Items.</summary>
         public static void TryRestoreFromCookie()
         {
-            HttpContext ctx = HttpContext.Current;
-            HttpCookie c = ctx.Request.Cookies[CookieName];
+            HttpCookie c = Request.Cookies[CookieName];
             string token = c?.Value;
 
             if (!string.IsNullOrEmpty(token))
@@ -57,7 +56,7 @@ namespace HearthFileManager.engine
                     obUser u = AppConfig.FindUser(s.Username);
                     if (u != null)
                     {
-                        ctx.Items[ItemKey] = u;
+                        HttpContext.Current.Items[ItemKey] = u;
                         // roll expiry forward only when < 1/12 of the window remains
                         if (s.ExpiresUtc - DateTime.UtcNow < TimeSpan.FromTicks(Lifetime.Ticks / 12))
                         {
@@ -73,10 +72,10 @@ namespace HearthFileManager.engine
             // Developer convenience: auto-login for localhost requests when enabled in config.json
             obConfig cfg = AppConfig.Get();
             // Host must also be localhost: behind a local reverse proxy / Cloudflare Tunnel, internet traffic is "IsLocal" too.
-            string host = ctx.Request.Url.Host;
+            string host = Request.Url.Host;
             bool localHost = host == "localhost" || host == "127.0.0.1" || host == "[::1]";
-            if (cfg.DevAutoLogin && ctx.Request.IsLocal && localHost && cfg.Users.Count > 0)
-                ctx.Items[ItemKey] = cfg.Users[0];
+            if (cfg.DevAutoLogin && Request.IsLocal && localHost && cfg.Users.Count > 0)
+                HttpContext.Current.Items[ItemKey] = cfg.Users[0];
         }
 
         public static void Login(obUser user)
@@ -94,8 +93,7 @@ namespace HearthFileManager.engine
 
         public static void Logout()
         {
-            HttpContext ctx = HttpContext.Current;
-            HttpCookie c = ctx.Request.Cookies[CookieName];
+            HttpCookie c = Request.Cookies[CookieName];
             if (c != null && !string.IsNullOrEmpty(c.Value))
             {
                 string hash = AppConfig.Sha256Hex(c.Value);
@@ -104,7 +102,7 @@ namespace HearthFileManager.engine
                 Persist(new StoredSession { TokenHash = hash }, true);
             }
             SetCookie("", DateTime.UtcNow.AddDays(-1));
-            ctx.Items.Remove(ItemKey);
+            HttpContext.Current.Items.Remove(ItemKey);
         }
 
         /// <summary>Removes every session of a user (used when the account is deleted or its password changes).</summary>
@@ -126,12 +124,11 @@ namespace HearthFileManager.engine
 
         static void SetCookie(string value, DateTime expires)
         {
-            HttpContext ctx = HttpContext.Current;
-            ctx.Response.Cookies.Add(new HttpCookie(CookieName, value)
+            Response.Cookies.Add(new HttpCookie(CookieName, value)
             {
                 HttpOnly = true,
                 Path = "/",
-                Secure = ctx.Request.IsSecureConnection,
+                Secure = Request.IsSecureConnection,
                 SameSite = SameSiteMode.Lax,
                 Expires = expires
             });

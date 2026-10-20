@@ -7,11 +7,9 @@ namespace HearthFileManager.RH
 {
     public class SettingsPageApi
     {
-        static HttpRequest Req => HttpContext.Current.Request;
-
         public static void HandleRequest()
         {
-            string action = (Req["action"] + "").ToLower().Trim();
+            string action = (Request.Params["action"] + "").ToLower().Trim();
             try
             {
                 switch (action)
@@ -30,17 +28,17 @@ namespace HearthFileManager.RH
         static int Int(string name, int min, int max, int fallback)
         {
             int v;
-            if (!int.TryParse(Req.Form[name], out v)) return fallback;
+            if (!int.TryParse(Request.Form[name], out v)) return fallback;
             return Math.Max(min, Math.Min(max, v));
         }
 
         static void Save()
         {
-            string key = (Req.Form["key"] ?? "").Trim();
-            string model = (Req.Form["model"] ?? "").Trim();
-            string site = (Req.Form["site"] ?? "").Trim().TrimEnd('/');
+            string key = (Request.Form["key"] ?? "").Trim();
+            string model = (Request.Form["model"] ?? "").Trim();
+            string site = (Request.Form["site"] ?? "").Trim().TrimEnd('/');
             if (site != "" && !Uri.IsWellFormedUriString(site, UriKind.Absolute)) { ApiHelper.WriteError("The website address must start with http:// or https://"); return; }
-            bool isLocal = Req.IsLocal;
+            bool isLocal = Request.IsLocal;
 
             // main root folder. A full path set in config.json is locked: the UI never changes or reveals it.
             // From the UI only /App_Data/public or a sub-folder of it is accepted.
@@ -51,7 +49,7 @@ namespace HearthFileManager.RH
             if (locked) rootFull = AppConfig.MainRoot();
             else
             {
-                root = AppConfig.NormalizePathSetting(Req.Form["root"]);
+                root = AppConfig.NormalizePathSetting(Request.Form["root"]);
                 if (root == "") root = AppConfig.DefaultSiteRoot;
                 if (AppConfig.IsAbsoluteSetting(root)) { ApiHelper.WriteError("Absolute paths can only be set in App_Data/config.json."); return; }
                 try { rootFull = AppConfig.ResolvePath(root, AppConfig.AppRoot); }
@@ -64,7 +62,7 @@ namespace HearthFileManager.RH
             }
             string writeProblem = new FsService(AppConfig.AppDataPath, rootFull).WriteProblem();
             string rootShown = AppConfig.DisplayPath(rootFull);
-            bool devLogin = Req.Form["devlogin"] == "1";
+            bool devLogin = Request.Form["devlogin"] == "1";
 
             AppConfig.Update(c =>
             {
@@ -83,7 +81,7 @@ namespace HearthFileManager.RH
 
         static void Models()
         {
-            string key = (Req.Form["key"] ?? "").Trim();
+            string key = (Request.Form["key"] ?? "").Trim();
             if (key == "") key = AppConfig.Get().GeminiApiKey;
             if (string.IsNullOrEmpty(key)) { ApiHelper.WriteError("Enter an API key first."); return; }
             ApiHelper.WriteJson(new { success = true, message = "Success", items = GeminiAgent.ListModels(key) });

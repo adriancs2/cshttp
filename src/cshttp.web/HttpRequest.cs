@@ -52,13 +52,28 @@ namespace cshttp
 
         public string RequestType { get { return _head.Method; } }
 
-        /// <summary>Percent-decoded path, e.g. "/files/a b". ('+' is not a space in paths.)</summary>
+        /// <summary>Percent-decoded path, e.g. "/files/a b". ('+' is not a space in paths.) Trailing slashes are trimmed except for "/".</summary>
         public string Path
         {
             get
             {
                 if (_path == null)
-                    _path = _head.TargetForm == RequestTargetForm.Asterisk ? "*" : PercentDecoder.Decode(_head.Path, false, Encoding.UTF8);
+                {
+                    if (_head.TargetForm == RequestTargetForm.Asterisk)
+                    {
+                        _path = "*";
+                    }
+                    else
+                    {
+                        string decoded = PercentDecoder.Decode(_head.Path, false, Encoding.UTF8);
+                        if (decoded.Length > 1 && decoded[decoded.Length - 1] == '/')
+                        {
+                            decoded = decoded.TrimEnd('/');
+                            if (decoded.Length == 0) decoded = "/";
+                        }
+                        _path = decoded;
+                    }
+                }
                 return _path;
             }
         }

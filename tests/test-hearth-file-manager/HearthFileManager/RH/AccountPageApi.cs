@@ -6,11 +6,9 @@ namespace HearthFileManager.RH
 {
     public class AccountPageApi
     {
-        static HttpRequest Req => HttpContext.Current.Request;
-
         public static void HandleRequest()
         {
-            string action = (Req["action"] + "").ToLower().Trim();
+            string action = (Request.Params["action"] + "").ToLower().Trim();
             try
             {
                 switch (action)
@@ -28,8 +26,8 @@ namespace HearthFileManager.RH
         static void ChangePassword()
         {
             obUser me = AppSession.LoginUser;
-            string current = Req.Unvalidated.Form["current"] ?? "";
-            string next = Req.Unvalidated.Form["password"] ?? "";
+            string current = Request.Unvalidated.Form["current"] ?? "";
+            string next = Request.Unvalidated.Form["password"] ?? "";
 
             if (!AppConfig.VerifyUser(me.Username, current)) { ApiHelper.WriteError("Your current password is not correct."); return; }
             if (next.Length < 8) { ApiHelper.WriteError("The new password must be at least 8 characters."); return; }

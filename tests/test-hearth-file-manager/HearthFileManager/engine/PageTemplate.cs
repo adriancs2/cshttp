@@ -107,9 +107,8 @@ namespace HearthFileManager.engine
 
         public static void WriteHtml(string html)
         {
-            HttpResponse res = HttpContext.Current.Response;
-            res.ContentType = "text/html; charset=utf-8";
-            res.Write(html);
+            Response.ContentType = "text/html; charset=utf-8";
+            Response.Write(html);
             ApiHelper.EndResponse();
         }
     }

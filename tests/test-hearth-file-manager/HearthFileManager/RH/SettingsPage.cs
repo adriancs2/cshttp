@@ -32,7 +32,7 @@ namespace HearthFileManager.RH
                 SiteRootLocked = AppConfig.IsAbsoluteSetting(cfg.SiteRoot),
                 SiteRootFull = AppConfig.DisplayPath(AppConfig.MainRoot()),
                 cfg.DevAutoLogin,
-                IsLocal = HttpContext.Current.Request.IsLocal
+                IsLocal = Request.IsLocal
             }) + "\n" + StaticAsset.Script("/js/settings.js");
 
             var sb = new StringBuilder();

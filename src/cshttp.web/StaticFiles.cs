@@ -90,6 +90,20 @@ namespace cshttp
     {
         const long OneYearSeconds = 365L * 24 * 3600;
 
+        public static bool TryServe(string requestPrefix, string physicalPath)
+        {
+            HttpContext ctx = HttpContext.Current;
+            if (ctx == null) throw new InvalidOperationException("StaticFiles.TryServe requires an active HttpContext.");
+            return TryServe(ctx, new StaticFileOptions(requestPrefix, physicalPath));
+        }
+
+        public static bool TryServe(StaticFileOptions options)
+        {
+            HttpContext ctx = HttpContext.Current;
+            if (ctx == null) throw new InvalidOperationException("StaticFiles.TryServe requires an active HttpContext.");
+            return TryServe(ctx, options);
+        }
+
         public static bool TryServe(HttpContext context, string requestPrefix, string physicalPath)
         {
             return TryServe(context, new StaticFileOptions(requestPrefix, physicalPath));

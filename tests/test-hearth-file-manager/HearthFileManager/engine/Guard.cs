@@ -16,7 +16,7 @@ namespace HearthFileManager.engine
         public static bool PageLoggedIn()
         {
             if (AppSession.IsLoggedIn) return true;
-            HttpContext.Current.Response.Redirect("/login", false);
+            Response.Redirect("/login", false);
             ApiHelper.EndResponse();
             return false;
         }
@@ -27,7 +27,7 @@ namespace HearthFileManager.engine
             if (!PageLoggedIn()) return false;
             if (AppSession.LoginUser.Has(perm)) return true;
 
-            HttpContext.Current.Response.StatusCode = 403;
+            Response.StatusCode = 403;
             var pt = new PageTemplate { Title = "No access", BodyClass = "page-noaccess", ActiveMenu = activeMenu };
             var sb = new StringBuilder();
             sb.Append(pt.GenerateHtmlHeader());
@@ -65,8 +65,7 @@ namespace HearthFileManager.engine
         public static void Mutating()
         {
             LoggedIn();
-            HttpRequest req = HttpContext.Current.Request;
-            if (req.HttpMethod != "POST" || req.Headers["X-Hearth"] != "1")
+            if (Request.HttpMethod != "POST" || Request.Headers["X-Hearth"] != "1")
                 throw new GuardException("Invalid request", 403);
         }
 

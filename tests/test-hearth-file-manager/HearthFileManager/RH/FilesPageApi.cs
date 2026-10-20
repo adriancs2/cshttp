@@ -9,12 +9,11 @@ namespace HearthFileManager.RH
 {
     public class FilesPageApi
     {
-        static HttpRequest Req => HttpContext.Current.Request;
         static FsService Fs => FsService.ForUser(AppSession.LoginUser);
 
         public static void HandleRequest()
         {
-            string action = (Req["action"] + "").ToLower().Trim();
+            string action = (Request.Params["action"] + "").ToLower().Trim();
             try
             {
                 switch (action)
@@ -49,11 +48,11 @@ namespace HearthFileManager.RH
             ApiHelper.EndResponse();
         }
 
-        static string Path => Req.Form["path"] ?? Req.QueryString["path"] ?? "";
+        static string Path => Request.Form["path"] ?? Request.QueryString["path"] ?? "";
 
         static List<string> Paths()
         {
-            string json = Req.Form["paths"] ?? Req.QueryString["paths"];
+            string json = Request.Form["paths"] ?? Request.QueryString["paths"];
             if (string.IsNullOrEmpty(json)) return new List<string> { Path };
             return JsonConvert.DeserializeObject<List<string>>(json) ?? new List<string>();
         }
@@ -79,7 +78,7 @@ namespace HearthFileManager.RH
             if (FsService.IsInRecycle(rel)) throw new FsException("Restore the file before editing it.");
             if (!File.Exists(fs.Resolve(rel))) throw new FsException("The file no longer exists.");
             // form posts turn every newline into CRLF; keep the file's own style (LF unless it already used CRLF)
-            string content = Req.Unvalidated.Form["content"] ?? "";
+            string content = Request.Unvalidated.Form["content"] ?? "";
             string old = File.ReadAllText(fs.Resolve(rel));
             if (!old.Contains("\r\n")) content = content.Replace("\r\n", "\n");
             fs.WriteText(rel, content);
@@ -88,27 +87,27 @@ namespace HearthFileManager.RH
 
         static void MkDir()
         {
-            string rel = Fs.CreateFolder(Path, Req.Form["name"] + "");
+            string rel = Fs.CreateFolder(Path, Request.Form["name"] + "");
             ApiHelper.WriteSuccess("Folder created", new { Path = rel });
         }
 
         static void NewFile()
         {
             if (FsService.IsInRecycle(Path)) throw new FsException("You cannot create files in the recycle bin.");
-            string rel = Fs.CreateFile(Path, Req.Form["name"] + "", "");
+            string rel = Fs.CreateFile(Path, Request.Form["name"] + "", "");
             ApiHelper.WriteSuccess("File created", new { Path = rel });
         }
 
         static void Rename()
         {
-            string rel = Fs.Rename(Path, (Req.Form["name"] + "").Trim());
+            string rel = Fs.Rename(Path, (Request.Form["name"] + "").Trim());
             ApiHelper.WriteSuccess("Renamed", new { Path = rel });
         }
 
         static void MoveOrCopy(bool copy)
         {
             FsService fs = Fs;
-            string dest = FsService.NormalizeRel(Req.Form["dest"]);
+            string dest = FsService.NormalizeRel(Request.Form["dest"]);
             if (FsService.IsInRecycle(dest)) throw new FsException("Use Delete to move items to the recycle bin.");
             if (!Directory.Exists(fs.Resolve(dest))) throw new FsException("Destination folder not found.");
             int n = 0;
@@ -152,7 +151,7 @@ namespace HearthFileManager.RH
         {
             List<string> paths = Paths();
             if (paths.Count == 0) throw new FsException("Nothing selected.");
-            string name = (Req.Form["name"] + "").Trim();
+            string name = (Request.Form["name"] + "").Trim();
             if (name == "") name = (paths.Count == 1 ? FsService.NameOf(paths[0]) : "archive") + ".zip";
             if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) name += ".zip";
             string rel = Fs.Zip(paths, FsService.Combine(FsService.ParentOf(paths[0]), name));
@@ -162,7 +161,7 @@ namespace HearthFileManager.RH
         static void Unzip()
         {
             string rel = FsService.NormalizeRel(Path);
-            string dest = Req.Form["dest"];
+            string dest = Request.Form["dest"];
             if (dest == null) dest = FsService.ParentOf(rel);
             int n = Fs.Unzip(rel, dest);
             ApiHelper.WriteSuccess($"Extracted {n} file(s)", new { Path = FsService.NormalizeRel(dest) });
@@ -172,12 +171,12 @@ namespace HearthFileManager.RH
         {
             FsService fs = Fs;
             obConfig cfg = AppConfig.Get();
-            HttpPostedFile file = Req.Files["chunk"];
+            HttpPostedFile file = Request.Files["chunk"];
             if (file == null) throw new FsException("No data received.");
-            int index = int.Parse(Req.Form["index"] ?? "0");
-            int total = int.Parse(Req.Form["total"] ?? "1");
-            string uploadId = Req.Form["uploadId"];
-            string dest = FsService.NormalizeRel(Req.Form["dest"]);
+            int index = int.Parse(Request.Form["index"] ?? "0");
+            int total = int.Parse(Request.Form["total"] ?? "1");
+            string uploadId = Request.Form["uploadId"];
+            string dest = FsService.NormalizeRel(Request.Form["dest"]);
             if (dest == "") throw new FsException("Missing file name.");
 
             fs.AppendChunk(uploadId, index, file.InputStream, (long)cfg.MaxUploadMb * 1024 * 1024);
@@ -193,29 +192,28 @@ namespace HearthFileManager.RH
         {
             FsService fs = Fs;
             List<string> paths = Paths();
-            HttpResponse res = HttpContext.Current.Response;
-            res.BufferOutput = false;
+            Response.BufferOutput = false;
 
             if (paths.Count == 1 && File.Exists(fs.Resolve(paths[0])))
             {
                 string full = fs.Resolve(paths[0]);
-                res.ContentType = "application/octet-stream";
-                res.AddHeader("Content-Disposition", ContentDisposition("attachment", FsService.NameOf(paths[0])));
-                res.AddHeader("Content-Length", new FileInfo(full).Length.ToString());
-                res.TransmitFile(full);
+                Response.ContentType = "application/octet-stream";
+                Response.AddHeader("Content-Disposition", ContentDisposition("attachment", FsService.NameOf(paths[0])));
+                Response.AddHeader("Content-Length", new FileInfo(full).Length.ToString());
+                Response.TransmitFile(full);
             }
             else
             {
                 string name = (paths.Count == 1 ? FsService.NameOf(paths[0]) : "download") + ".zip";
                 if (name == ".zip") name = "website.zip";
-                res.ContentType = "application/zip";
-                res.AddHeader("Content-Disposition", ContentDisposition("attachment", name));
+                Response.ContentType = "application/zip";
+                Response.AddHeader("Content-Disposition", ContentDisposition("attachment", name));
                 // ZipArchive needs a seekable stream; build in a temp file then transmit
                 string tmp = System.IO.Path.Combine(fs.TempPath, "dl-" + Guid.NewGuid().ToString("N") + ".zip");
                 using (var f = File.Create(tmp)) fs.ZipToStream(paths, f);
-                res.AddHeader("Content-Length", new FileInfo(tmp).Length.ToString());
-                res.WriteFile(tmp);
-                res.Flush();
+                Response.AddHeader("Content-Length", new FileInfo(tmp).Length.ToString());
+                Response.WriteFile(tmp);
+                Response.Flush();
                 try { File.Delete(tmp); } catch { }
             }
             ApiHelper.EndResponse();
@@ -227,22 +225,21 @@ namespace HearthFileManager.RH
             FsService fs = Fs;
             string rel = FsService.NormalizeRel(Path);
             string full = fs.Resolve(rel);
-            HttpResponse res = HttpContext.Current.Response;
-            if (!File.Exists(full)) { res.StatusCode = 404; ApiHelper.EndResponse(); return; }
+            if (!File.Exists(full)) { Response.StatusCode = 404; ApiHelper.EndResponse(); return; }
 
             var fi = new FileInfo(full);
             string etag = "\"" + fi.LastWriteTimeUtc.Ticks.ToString("x") + "-" + fi.Length.ToString("x") + "\"";
-            res.Cache.SetCacheability(HttpCacheability.Private);
-            res.Cache.SetMaxAge(TimeSpan.FromDays(7));
-            res.AddHeader("ETag", etag);
-            if (Req.Headers["If-None-Match"] == etag) { res.StatusCode = 304; ApiHelper.EndResponse(); return; }
+            Response.Cache.SetCacheability(HttpCacheability.Private);
+            Response.Cache.SetMaxAge(TimeSpan.FromDays(7));
+            Response.AddHeader("ETag", etag);
+            if (Request.Headers["If-None-Match"] == etag) { Response.StatusCode = 304; ApiHelper.EndResponse(); return; }
 
             string mime = FsService.MimeOf(rel);
-            res.ContentType = mime;
+            Response.ContentType = mime;
             // never let uploaded SVG/HTML run script on this origin
-            res.AddHeader("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
-            res.AddHeader("Content-Disposition", ContentDisposition("inline", fi.Name));
-            res.TransmitFile(full);
+            Response.AddHeader("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
+            Response.AddHeader("Content-Disposition", ContentDisposition("inline", fi.Name));
+            Response.TransmitFile(full);
             ApiHelper.EndResponse();
         }
 

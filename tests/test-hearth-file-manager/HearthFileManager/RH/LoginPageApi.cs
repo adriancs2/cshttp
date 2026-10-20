@@ -12,8 +12,7 @@ namespace HearthFileManager.RH
 
         public static void HandleRequest()
         {
-            var req = HttpContext.Current.Request;
-            string action = (req["action"] + "").ToLower().Trim();
+            string action = (Request.Params["action"] + "").ToLower().Trim();
             try
             {
                 switch (action)
@@ -28,10 +27,9 @@ namespace HearthFileManager.RH
 
         static void Login()
         {
-            var req = HttpContext.Current.Request;
-            if (req.HttpMethod != "POST" || req.Headers["X-Hearth"] != "1") { ApiHelper.WriteError("Invalid request", 403); return; }
+            if (Request.HttpMethod != "POST" || Request.Headers["X-Hearth"] != "1") { ApiHelper.WriteError("Invalid request", 403); return; }
 
-            string ip = req.UserHostAddress ?? "";
+            string ip = Request.UserHostAddress ?? "";
             Tuple<int, DateTime> f;
             if (Failures.TryGetValue(ip, out f) && f.Item1 >= 8 && DateTime.UtcNow - f.Item2 < TimeSpan.FromMinutes(5))
             {
@@ -39,8 +37,8 @@ namespace HearthFileManager.RH
                 return;
             }
 
-            string username = (req.Form["username"] + "").Trim();
-            string password = req.Form["password"] + "";
+            string username = (Request.Form["username"] + "").Trim();
+            string password = Request.Form["password"] + "";
             if (!AppConfig.VerifyUser(username, password))
             {
                 Failures.AddOrUpdate(ip, new Tuple<int, DateTime>(1, DateTime.UtcNow), (k, old) => new Tuple<int, DateTime>(old.Item1 + 1, DateTime.UtcNow));

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using cshttp;
@@ -7,8 +7,8 @@ using HearthFileManager.engine;
 namespace HearthFileManager
 {
     /// <summary>
-    /// Replaces Global.asax.cs. Application_Start is the code before server.Run;
-    /// Application_BeginRequest is the handler. The switch table is unchanged.
+    /// Replaces Global.asax.cs. Application_Start is the code before WebApp.Run;
+    /// Application_BeginRequest is OnRequest. The switch table is unchanged.
     ///
     /// Usage: HearthFileManager.exe [--port 8080] [--public] [--root path]
     ///   --public  listen on all interfaces (default: localhost only)
@@ -34,14 +34,11 @@ namespace HearthFileManager
                 return 1;
             }
 
-            var options = new ServerOptions
-            {
-                ContentRoot = root,
-                MaxRequestBodySize = 16L * 1024 * 1024,           // was maxAllowedContentLength (uploads arrive in 5 MB chunks)
-                Log = msg => Console.WriteLine("[cshttp] " + msg),
-                OnUnhandledException = (ctx, ex) => Console.Error.WriteLine("[error] " + ctx.Request.RawUrl + ": " + ex.Message)
-            };
-            options.ListenHttp(isPublic ? IPAddress.Any : IPAddress.Loopback, port);
+            WebApp.Address = isPublic ? IPAddress.Any : IPAddress.Loopback;
+            WebApp.ContentRoot = root;
+            WebApp.Options.MaxRequestBodySize = 16L * 1024 * 1024;           // was maxAllowedContentLength (uploads arrive in 5 MB chunks)
+            WebApp.Options.Log = msg => Console.WriteLine("[cshttp] " + msg);
+            WebApp.Options.OnUnhandledException = (ctx, ex) => Console.Error.WriteLine("[error] " + ctx.Request.RawUrl + ": " + ex.Message);
 
             // ---- was Application_Start ----
             HostingEnvironment.SetApplicationPhysicalPath(root);
@@ -50,34 +47,29 @@ namespace HearthFileManager
             fs.CleanupTemp(TimeSpan.FromDays(1));
             AppConfig.Get(); // migrates/creates config.json
 
-            Console.WriteLine("HearthFileManager on cshttp: http://" + (isPublic ? "*" : "localhost") + ":" + port + "/   (root: " + root + ")");
-            Console.WriteLine("Press Ctrl+C to stop.");
-            new HttpServer(options).Run(BeginRequest);
+            WebApp.Run(port, OnRequest);
             return 0;
         }
 
         // ---- was Application_BeginRequest ----
-        static void BeginRequest(HttpContext ctx)
+        static void OnRequest()
         {
-            HttpRequest Request = ctx.Request;
-            HttpResponse Response = ctx.Response;
-
             // was <httpProtocol><customHeaders> in web.config
             Response.AppendHeader("X-Content-Type-Options", "nosniff");
             Response.AppendHeader("Referrer-Policy", "same-origin");
 
-            string path = Request.Path.ToLower().Trim().TrimEnd('/');
-
             // static assets: IIS used to serve these
-            if (path.StartsWith("/css/")) { StaticFiles.TryServe(ctx, "/css/", "css"); return; }
-            if (path.StartsWith("/js/")) { StaticFiles.TryServe(ctx, "/js/", "js"); return; }
-            if (path.StartsWith("/assets/")) { StaticFiles.TryServe(ctx, "/assets/", "assets"); return; }
+            if (StaticFiles.TryServe("/css/", "css")) return;
+            if (StaticFiles.TryServe("/js/", "js")) return;
+            if (StaticFiles.TryServe("/assets/", "assets")) return;
 
             AppSession.TryRestoreFromCookie();
 
+            string path = Request.Path.ToLower();
+
             switch (path)
             {
-                case "":
+                case "/":
                 case "/home":         Response.Redirect("/files", false); ApiHelper.EndResponse(); return;
                 case "/login":        RH.LoginPage.HandleRequest(); return;
                 case "/loginapi":     RH.LoginPageApi.HandleRequest(); return;
@@ -94,7 +86,7 @@ namespace HearthFileManager
                 case "/accountapi":   RH.AccountPageApi.HandleRequest(); return;
             }
 
-            // IIS answered unknown URLs with 404
+            // Answer unknown URLs with 404
             Response.StatusCode = 404;
             Response.ContentType = "text/plain";
             Response.Write("404 Not Found");

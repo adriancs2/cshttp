@@ -9,7 +9,7 @@ namespace HearthFileManager.RH
         public static void HandleRequest()
         {
             AppSession.Logout();
-            HttpContext.Current.Response.Redirect("/login", false);
+            Response.Redirect("/login", false);
             ApiHelper.EndResponse();
         }
     }
