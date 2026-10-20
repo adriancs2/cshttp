@@ -1,7 +1,6 @@
 ﻿# The Benchmark Reports of Different Strategies to Handle the Listening of HTTP Requests That Shape the Architecture Decision for `cshttp.server`
 
-> **A Stress-Test & Architecture White Paper for `cshttp.server` 1.0**  
-> *By Adrian ([adriancs.com](https://adriancs.com))*
+> A Stress-Test & Architecture White Paper for `cshttp.server` 1.0
 
 ---
 
