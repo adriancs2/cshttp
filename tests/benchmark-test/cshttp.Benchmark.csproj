@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Official Architecture Stress & Concurrency Benchmark for cshttp.server 1.0.
+    Compares:
+      1. cshttp.server.alpha.1.0 (1 OS Thread per Connection + Synchronous Blocking I/O)
+      2. White Paper Reference Model (TcpListener AcceptTcpClientAsync + Task.Run + Async Read/Write)
+      3. cshttp.server 1.0 (Zero-Thread IOCP Idle Wait + Synchronous Worker Execution)
+
+    Run on both runtimes in Release mode:
+      dotnet run -c Release -f net10.0
+      dotnet run -c Release -f net48
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net48;net10.0</TargetFrameworks>
+    <AssemblyName>cshttp.Benchmark</AssemblyName>
+    <RootNamespace>cshttp.Benchmark</RootNamespace>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\cshttp\cshttp.csproj" />
+    <ProjectReference Include="..\..\src\cshttp.web\cshttp.web.csproj" />
+    <ProjectReference Include="..\..\src\cshttp.server\cshttp.server.csproj" />
+  </ItemGroup>
+</Project>

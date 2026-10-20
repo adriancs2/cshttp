@@ -1,0 +1,155 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using cshttp;
+using HearthFileManager.engine;
+using Newtonsoft.Json;
+
+namespace HearthFileManager.RH
+{
+    public class UsersPageApi
+    {
+        static HttpRequest Req => HttpContext.Current.Request;
+
+        public static void HandleRequest()
+        {
+            string action = (Req["action"] + "").ToLower().Trim();
+            try
+            {
+                switch (action)
+                {
+                    case "list": Guard.Require(Perm.Users); List(); break;
+                    case "add": Guard.Mutating(Perm.Users); Add(); break;
+                    case "password": Guard.Mutating(Perm.Users); Password(); break;
+                    case "permissions": Guard.Mutating(Perm.Users); Permissions(); break;
+                    case "delete": Guard.Mutating(Perm.Users); Delete(); break;
+                    default: ApiHelper.WriteError($"Unknown action: {action}", 400); break;
+                }
+            }
+            catch (GuardException gx) { ApiHelper.WriteError(gx.Message, gx.StatusCode); }
+            catch (Exception ex) { ApiHelper.WriteError("An error occurred: " + ex.Message, 500); }
+            ApiHelper.EndResponse();
+        }
+
+        static bool IsMe(string username) => string.Equals(username, AppSession.LoginUser.Username, StringComparison.OrdinalIgnoreCase);
+
+        static void List()
+        {
+            var items = new List<object>();
+            foreach (obUser u in AppConfig.Get().Users)
+            {
+                string full = AppConfig.UserRoot(u);
+                items.Add(new
+                {
+                    u.Username,
+                    u.CreatedUtc,
+                    Permissions = u.EffectivePermissions(),
+                    // full paths set in config.json are masked and locked in the UI
+                    RootPath = AppConfig.IsAbsoluteSetting(u.RootPath) ? AppConfig.DisplayPath(full) : (u.RootPath ?? ""),
+                    RootLocked = AppConfig.IsAbsoluteSetting(u.RootPath),
+                    RootDisplay = AppConfig.DisplayPath(full),
+                    RootProblem = AppConfig.RootProblem(full)
+                });
+            }
+            ApiHelper.WriteJson(new { success = true, message = "Success", items });
+        }
+
+        static string ValidPassword()
+        {
+            string pwd = Req.Unvalidated.Form["password"] ?? "";
+            if (pwd.Length < 8) throw new GuardException("The password must be at least 8 characters.", 400);
+            return pwd;
+        }
+
+        static List<string> PostedPermissions()
+        {
+            string json = Req.Form["permissions"];
+            if (string.IsNullOrEmpty(json)) return new List<string>(Perm.NewUserDefault);
+            return Perm.Normalize(JsonConvert.DeserializeObject<List<string>>(json));
+        }
+
+        /// <summary>
+        /// Posted root folder for a user. Empty = main root; "alex" = sub-folder of the main root;
+        /// "/App_Data/public/alex" = relative to Hearth; "D:\sites\alex" = absolute. "/" and "\" both accepted.
+        /// Returns null and writes an error when the folder is not allowed.
+        /// </summary>
+        static string PostedRoot(obUser existing = null)
+        {
+            // a full path set in config.json is locked: keep it, whatever the browser sent
+            if (existing != null && AppConfig.IsAbsoluteSetting(existing.RootPath)) return existing.RootPath;
+
+            string root = AppConfig.NormalizePathSetting(Req.Form["root"]);
+            string full;
+            try { full = AppConfig.ResolvePath(root, AppConfig.MainRoot()); }
+            catch (Exception ex) { ApiHelper.WriteError("Invalid root folder: " + ex.Message); return null; }
+            string problem = AppConfig.UiRootProblem(root, full);
+            if (problem != null) { ApiHelper.WriteError(problem); return null; }
+            try { System.IO.Directory.CreateDirectory(full); }
+            catch (Exception ex) { ApiHelper.WriteError("Could not create the folder " + AppConfig.DisplayPath(full) + ": " + ex.Message); return null; }
+            return root;
+        }
+
+        static void Add()
+        {
+            string username = (Req.Form["username"] + "").Trim();
+            if (!Regex.IsMatch(username, "^[A-Za-z0-9._@-]{3,40}$")) { ApiHelper.WriteError("Username: 3–40 letters, numbers, dot, dash, underscore or @."); return; }
+            if (AppConfig.FindUser(username) != null) { ApiHelper.WriteError("That username is already taken."); return; }
+            string hash = AppConfig.HashPassword(ValidPassword());
+            List<string> perms = PostedPermissions();
+            string root = PostedRoot();
+            if (root == null) return;
+            AppConfig.Update(c => c.Users.Add(new obUser { Username = username, PasswordHash = hash, CreatedUtc = DateTime.UtcNow, Permissions = perms, RootPath = root }));
+            ApiHelper.WriteSuccess("User added");
+        }
+
+        /// <summary>Admin password reset (no current password needed). The user is signed out everywhere.</summary>
+        static void Password()
+        {
+            obUser u = AppConfig.FindUser(Req.Form["username"] + "");
+            if (u == null) { ApiHelper.WriteError("User not found", 404); return; }
+            string hash = AppConfig.HashPassword(ValidPassword());
+            AppConfig.Update(c => { foreach (obUser x in c.Users) if (x.Username == u.Username) x.PasswordHash = hash; });
+            if (!IsMe(u.Username)) AppSession.RevokeUser(u.Username);
+            ApiHelper.WriteSuccess("Password changed");
+        }
+
+        static void Permissions()
+        {
+            obUser u = AppConfig.FindUser(Req.Form["username"] + "");
+            if (u == null) { ApiHelper.WriteError("User not found", 404); return; }
+            List<string> perms = PostedPermissions();
+
+            // lockout protection: you cannot take "Manage users" away from yourself,
+            // and at least one account must always keep it
+            if (!perms.Contains(Perm.Users))
+            {
+                if (IsMe(u.Username)) { ApiHelper.WriteError("You cannot remove your own \"Manage users\" permission."); return; }
+                if (!AnotherManagerExists(u.Username)) { ApiHelper.WriteError("At least one user must keep the \"Manage users\" permission."); return; }
+            }
+
+            string root = PostedRoot(u);
+            if (root == null) return;
+            AppConfig.Update(c => { foreach (obUser x in c.Users) if (x.Username == u.Username) { x.Permissions = perms; x.RootPath = root; } });
+            ApiHelper.WriteSuccess("Saved changes for " + u.Username);
+        }
+
+        static void Delete()
+        {
+            string username = Req.Form["username"] + "";
+            if (IsMe(username)) { ApiHelper.WriteError("You cannot delete your own account."); return; }
+            obUser u = AppConfig.FindUser(username);
+            if (u == null) { ApiHelper.WriteError("User not found", 404); return; }
+            if (u.Has(Perm.Users) && !AnotherManagerExists(u.Username)) { ApiHelper.WriteError("At least one user must keep the \"Manage users\" permission."); return; }
+            AppConfig.Update(c => c.Users.RemoveAll(x => x.Username == u.Username));
+            AppSession.RevokeUser(u.Username);
+            ApiHelper.WriteSuccess("User deleted");
+        }
+
+        static bool AnotherManagerExists(string exceptUsername)
+        {
+            foreach (obUser x in AppConfig.Get().Users)
+                if (!string.Equals(x.Username, exceptUsername, StringComparison.OrdinalIgnoreCase) && x.Has(Perm.Users)) return true;
+            return false;
+        }
+    }
+}

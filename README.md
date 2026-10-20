@@ -1,238 +1,227 @@
-# cshttp
+﻿# cshttp
 
-**A standalone HTTP/1.1 parser and content toolkit for C#.**
-**No framework. No server. No dependencies. Just bytes in, structured message out.**
-
----
-
-## Demo Project
-
-- [Queue Management System - C# Console App - Self-contained Web Server](https://github.com/adriancs2/Queue-Management-System)
-
-## The Gap
-
-Every major language has a standalone HTTP parser. C has [llhttp](https://github.com/nicholascc/llhttp) (the engine inside Node.js). Rust has [httparse](https://github.com/seanmonstar/httparse). Python has [httptools](https://github.com/MagicStack/httptools). These are small, focused libraries — you give them bytes, they give you back structured data. No framework required.
-
-C# has no equivalent.
-
-If you need to parse HTTP in .NET today, you either adopt the entire ASP.NET stack (Web Forms, MVC, .NET Core, IIS, Kestrel, middleware pipeline, hosting abstractions, dependency injection), or you write a hand-rolled parser that handles the happy path and silently breaks on chunked encoding, request smuggling, bare CR injection, obs-fold headers, and the other edge cases that RFC 9112 defines precisely and most hand-written parsers ignore.
-
-cshttp fills that gap. It is a complete HTTP/1.1 message parser and content toolkit, implemented as plain C# source files you can drop into any project.
+**A Zero-Dependency, Modular HTTP/1.1 Stack & Standalone Web Server for C#.**  
+**Runs identically on `.NET Framework 4.8` and `.NET 8 / 10+` — No IIS. No Kestrel. Zero NuGet Packages.**
 
 ---
 
-## Quick Start
+## 1. Why This Project Exists & The Problems It Solves
 
-### Parse an HTTP Request
+In systems programming languages, the boundary between the network socket, the wire-level HTTP parser, the web content toolkit, and the application server is modular and explicit. C has `llhttp`, Rust has `httparse`, and Go has a standard library `net/http` server that compiles into a single self-contained binary.
 
-```csharp
-byte[] data = Encoding.ASCII.GetBytes(
-    "POST /submit?ref=home HTTP/1.1\r\n" +
-    "Host: example.com\r\n" +
-    "Content-Type: application/x-www-form-urlencoded\r\n" +
-    "Content-Length: 25\r\n" +
-    "Cookie: sid=abc123\r\n" +
-    "\r\n" +
-    "email=user%40mail.com&x=1");
+Historically, C# developers faced two painful gaps:
 
-ParseResult result = HttpParser.ParseRequest(data);
-HttpRequestMessage req = result.Request;
+1. **The All-or-Nothing Framework Tax:** If you wanted to parse HTTP/1.1 or listen for HTTP requests in .NET without adopting the entirety of ASP.NET (`System.Web` + IIS) or ASP.NET Core (`Microsoft.AspNetCore.*` + Kestrel + DI + Middleware pipelines), your only choices were the Windows-bound `HttpListener` (`http.sys`) or a fragile hand-rolled string splitter that silently breaks on chunked transfer encoding, HTTP request smuggling, bare CR injection, or multipart file uploads.
+2. **The IIS Lock-In for `.NET Framework 4.8` Applications:** Thousands of battle-tested C# web applications (including high-speed **Pageless ASP.NET Web Forms** applications) are written against `HttpContext.Current`, `Request.QueryString`, `Request.Form`, `Request.Files`, `Response.Write`, and `HostingEnvironment.MapPath`. Until now, running those applications outside IIS—as a self-contained `.exe`, a Windows Service, or a Linux `systemd` service on `.NET 8/10`—required a ground-up rewrite to ASP.NET Core.
 
-// --- Envelope (RFC 9112) ---
-string method  = req.Method;            // "POST"
-string target  = req.RequestTarget;     // "/submit?ref=home"
-string version = req.Version;           // "HTTP/1.1"
-string host    = req.Headers["Host"];   // "example.com"
+**`cshttp` solves both problems.** Written in pure **C# 7.3** with **zero external dependencies** and a single namespace (`cshttp`), it provides a clean 3-tier modular HTTP/1.1 stack that you can embed as source files or reference as lightweight class libraries.
 
-// --- Content (lazy-parsed on first access) ---
-string path    = req.Path;              // "/submit"
-string refVal  = req.QueryString["ref"];// "home"
-string email   = req.Form["email"];     // "user@mail.com" (decoded)
-string sid     = req.Cookies["sid"];    // "abc123"
+---
 
-// --- Combined shortcut ---
-string val     = req["email"];          // searches QueryString → Form → Cookies → Headers
+## 2. Repository Overview & Which Layer Do You Need?
+
+This repository is organized into **three modular library tiers** (`src/`) and a **comprehensive verification & benchmark suite** (`tests/`):
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         YOUR C# APPLICATION CODE                             │
+│         (Switch Router + Synchronous Handlers / Migrated Web Forms)          │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ TIER 3: cshttp.server  (3 .cs files — src/cshttp.server/)                    │
+│  • Standalone HTTP/1.1 & HTTPS TCP Server (Run as Console Exe or OS Service) │
+│  • Zero-Thread IOCP Idle Keep-Alive + Synchronous Worker Burst Loop          │
+│  • Slowloris Defense, TrustedProxies (X-Forwarded-*), Graceful Drain         │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ TIER 2: cshttp.web     (11 .cs files — src/cshttp.web/)                      │
+│  • Drop-In System.Web Surface: HttpContext.Current, HttpRequest, HttpResponse│
+│  • Lazy-Parsed QueryString, Form, Cookies, Multipart Files, HttpUtility      │
+│  • StaticFiles (ETag, 304, Byte Ranges 206, Path-Traversal Guard), MapPath   │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ TIER 1: cshttp         (7 .cs files — src/cshttp/)                           │
+│  • Pure RFC 9112 Wire Engine: Resumable Request-Head Parser (No I/O)         │
+│  • Zero-Copy ChunkedDecoder, Response Head Writer, Smuggling & CRLF Guards   │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Parse an HTTP Response
+### Architectural Decision Guide: Choosing Your Tier
+
+| Component | What It Is & What It Unlocks | When You Need ONLY This Tier |
+| :--- | :--- | :--- |
+| **`cshttp`**<br>*(Tier 1 — 7 files)* | Pure byte-level RFC 9112 HTTP/1.1 request-head parser, incremental zero-copy `ChunkedDecoder`, and `HttpResponseWriter`. Performs **zero socket I/O** and allocates nothing until a full header block arrives. | Choose **`cshttp` only** when you are building a **custom TCP reverse proxy, API gateway, packet analyzer, traffic recorder, or embedded socket loop** where you already manage raw `byte[]` buffers and only need strict RFC 9112 framing and request-smuggling protection. |
+| **`cshttp.web`**<br>*(Tier 2 — 11 files)* | Full content toolkit and `System.Web`-compatible object model (`HttpContext.Current`, `HttpRequest`, `HttpResponse`, lazy `QueryString` / `Form` / `Files` / `Cookies`, `StaticFiles`, `HostingEnvironment`, `HttpUtility`). | Choose **`cshttp` + `cshttp.web`** when you want rich, lazy-evaluated form/multipart/cookie parsing and `System.Web` handler ergonomics **over your own custom transport** (e.g., custom async socket pipelines, named pipes, or **in-memory unit testing of web handlers without opening a TCP port**). |
+| **`cshttp.server`**<br>*(Tier 3 — 3 files)* | Production standalone HTTP/1.1 & HTTPS server engine using **Zero-Thread IOCP Idle Keep-Alive + Synchronous Worker Execution** (capable of **62,000+ RPS** with 1,500 concurrent connections on a 4-core CPU). | Choose the **full `cshttp.server` stack** when building a **self-contained C# web application, microservice, or internal tool** without IIS or Kestrel, or when **migrating an existing ASP.NET Web Forms / Pageless application into a standalone `.exe`** that runs on Windows or Linux. |
+| **`tests/`**<br>*(Tests, Benchmarks & Demo App)* | • [`tests/cshttp.Tests`](./tests/cshttp.Tests/): 95 RFC, security, socket, and seeded fuzz tests.<br>• [`tests/benchmark-test`](./tests/benchmark-test/): Concurrency stress-test suite.<br>• [`tests/test-hearth-file-manager`](./tests/test-hearth-file-manager/): Full production app ported from IIS to `cshttp.server`. | Use these projects to verify RFC compliance on `.NET 4.8` and `.NET 10`, reproduce our concurrency benchmark numbers, or study a complete real-world IIS-to-Console migration. |
+
+---
+
+## 3. Tier 1 Summary: `cshttp` (The Pure Wire Engine)
+
+`cshttp` turns raw `byte[]` slices into a validated `HttpRequestHead` and serializes `HttpHeaders` back into wire bytes. It is resumable across partial socket reads, enforces all RFC 9112 request-smuggling rules (rejecting conflicting `Transfer-Encoding` + `Content-Length`, bare `CR`, `obs-fold`, and header injection), and decodes `Transfer-Encoding: chunked` streams with zero intermediate buffer copies.
 
 ```csharp
-byte[] data = Encoding.ASCII.GetBytes(
-    "HTTP/1.1 200 OK\r\n" +
-    "Content-Length: 13\r\n" +
-    "Set-Cookie: sid=xyz; Path=/; HttpOnly; SameSite=Lax\r\n" +
-    "\r\n" +
-    "Hello, World!");
+using cshttp;
 
-ParseResult result = HttpParser.ParseResponse(data, "GET");
-HttpResponseMessage resp = result.Response;
+// Resumable, allocation-free until the blank line (\r\n\r\n) arrives:
+HttpRequestHead head;
+HttpParseResult r = HttpRequestParser.ParseHead(buffer, start, end - start, ParserOptions.Shared, out head);
 
-int code       = resp.StatusCode;               // 200
-string body    = Encoding.UTF8.GetString(resp.Body); // "Hello, World!"
-
-// --- Set-Cookie parsing ---
-SetCookie cookie = resp.SetCookies["sid"];
-string value     = cookie.Value;                // "xyz"
-bool httpOnly    = cookie.HttpOnly;             // true
-string sameSite  = cookie.SameSite;             // "Lax"
-```
-
-### Build an HTTP Response
-
-```csharp
-// One-liners
-byte[] resp = HttpResponse.Html("<h1>Hello</h1>");
-byte[] resp = HttpResponse.Json("{\"ok\":true}");
-byte[] resp = HttpResponse.Redirect("/login");
-byte[] resp = HttpResponse.Status(204);
-
-// Full builder
-var builder = new HttpResponse(200);
-builder.Header("Content-Type", "text/html; charset=utf-8");
-builder.SetCookie("sid", "abc123", maxAge: 3600, httpOnly: true, secure: true, sameSite: "Lax");
-builder.Body("<h1>Hello</h1>");
-byte[] bytes = builder.ToBytes();
-```
-
-### Handle Errors and Warnings
-
-```csharp
-ParseResult result = HttpParser.ParseRequest(data);
-
-if (!result.Success)
+if (r.Status == HttpParseStatus.Complete)
 {
-    // Fatal error — parsing stopped
-    Console.WriteLine(result.Error.Kind);     // ParseErrorKind.ConflictingFraming
-    Console.WriteLine(result.Error.Position); // byte offset where it was detected
-    Console.WriteLine(result.Error.Message);  // human-readable detail
+    start += r.Consumed; // Exact byte offset where body (or next pipelined request) begins
+    string method = head.Method;          // "POST"
+    string path   = head.Path;            // "/api/upload"
+    bool keep     = head.KeepAlive;       // true
+    HttpBodyKind kind = head.BodyKind;    // None, ContentLength, or Chunked
 }
-
-// Non-fatal deviations — always available, even on success
-foreach (var warn in result.Warnings)
+else if (r.Status == HttpParseStatus.Error)
 {
-    Console.WriteLine(warn.Kind);     // ParseWarningKind.LeadingEmptyLines
-    Console.WriteLine(warn.Message);  // "Empty lines preceded the start-line."
+    // r.ErrorStatusCode tells the server whether to answer 400, 414, 417, 431, 501, or 505
 }
 ```
 
-When the RFC says **MUST**, cshttp enforces it as an error. When the RFC says **SHOULD**, cshttp enforces it in strict mode and tolerates it in lenient mode — but always records it as a warning.
+👉 **[Read the Deep-Dive Specification & Code Examples for `cshttp` (Tier 1 Wiki)](./wiki/1-cshttp-Wire-Engine.md)**
 
 ---
 
-## What's Inside
+## 4. Tier 2 Summary: `cshttp.web` (Content Toolkit & `System.Web` Drop-In)
 
-cshttp has two layers. The **envelope parser** handles the HTTP message structure per RFC 9112. The **content toolkit** handles everything inside — query strings, form bodies, file uploads, cookies — per their respective specifications. Both layers share the same design: zero dependencies, byte-level parsing, no regex on untrusted input.
+`cshttp.web` wraps a parsed `HttpRequestHead` and body `byte[]` into the familiar `HttpContext`, `HttpRequest`, and `HttpResponse` objects. Every content collection (`QueryString`, `Form`, `Files`, `Cookies`) is **lazy-parsed on first access**, and uploaded `HttpPostedFile` streams read directly from the underlying request buffer without copying memory.
 
-### Layer 1: Envelope Parser (RFC 9112)
+```csharp
+using cshttp;
 
-The core parser reads raw bytes and produces structured `HttpRequestMessage` or `HttpResponseMessage` objects. It implements every section of RFC 9112 that applies to message parsing:
+static void HandleUpload()
+{
+    HttpContext ctx      = HttpContext.Current;
+    HttpRequest Request  = ctx.Request;
+    HttpResponse Response = ctx.Response;
 
-- Request-line and status-line parsing with all four request-target forms (origin, absolute, authority, asterisk)
-- Header field parsing with wire-order preservation and case-insensitive access
-- All 8 body framing rules from Section 6.3, including chunked transfer encoding with trailers
-- Request smuggling detection (conflicting `Transfer-Encoding` and `Content-Length`)
-- Bare CR detection, obsolete line folding handling, leading empty line tolerance
-- Configurable strict/lenient modes, size limits, and four callback hooks
-- Pipeline support via `BytesConsumed` for parsing multiple messages from a single buffer
+    // Unified indexer searches QueryString -> Form -> Cookies -> ServerVariables
+    string folder = Request["folder"] ?? "default";
 
-### Layer 2: Content Toolkit
+    // Lazy-parsed RFC 7578 multipart/form-data file upload
+    HttpPostedFile file = Request.Files["file"];
+    if (file != null && file.ContentLength > 0)
+    {
+        string dest = HostingEnvironment.MapPath("~/App_Data/" + System.IO.Path.GetFileName(file.FileName));
+        file.SaveAs(dest);
+    }
 
-Content properties are lazy-parsed — they cost nothing until first access. A developer who only reads `Method` and `Headers` pays zero for content parsing.
+    Response.Cookies.Add(new HttpCookie("sid", "xyz") { HttpOnly = true, SameSite = SameSiteMode.Lax });
+    Response.ContentType = "application/json";
+    Response.Write("{\"uploaded\":true}");
+}
+```
 
-| Feature | Access | Specification |
-|---------|--------|---------------|
-| URL path (decoded) | `req.Path` | RFC 3986 |
-| Query string parameters | `req.QueryString["key"]` | WHATWG URL Standard |
-| Form body parameters | `req.Form["key"]` | WHATWG URL Standard |
-| File uploads | `req.Files["field"]` | RFC 7578, RFC 2046 |
-| Request cookies | `req.Cookies["name"]` | RFC 6265 Section 5.4 |
-| Response Set-Cookie | `resp.SetCookies["name"]` | RFC 6265 Section 4.1, 6265bis |
-| Percent-decoding | `PercentDecoder.Decode(s)` | RFC 3986 Section 2.1 |
-| Response building | `HttpResponse.Html(s)` | RFC 9112 Section 4, RFC 9110 |
-| Combined lookup | `req["key"]` | QueryString → Form → Cookies → Headers |
-
-### Security
-
-Both layers enforce configurable limits to defend against common attacks:
-
-- **Request smuggling** — conflicting TE/CL detected and rejected (configurable)
-- **Parameter pollution** — configurable max parameter count with duplicate key policy (PreserveAll, FirstWins, LastWins)
-- **Oversized input** — limits on start-line, header count, header size, body size, chunk size, query length, form size, multipart parts
-- **Encoding attacks** — overlong UTF-8 rejection, null byte policy, single-pass decoding (no double-decode)
-- **Malformed chunked encoding** — hex validation, CRLF enforcement, overflow detection
-- **Bare CR injection** — rejected in header names; configurable in values
-- **Filename injection** — multipart filenames reported raw; application sanitizes before filesystem use
-- **No regex on untrusted input** — all parsing is character-by-character or byte-by-byte
+👉 **[Read the Deep-Dive Specification & Code Examples for `cshttp.web` (Tier 2 Wiki)](./wiki/2-cshttp-web-Toolkit.md)**
 
 ---
 
-## Installation
+## 5. Tier 3 Summary: `cshttp.server` 1.0 (Standalone High-Concurrency Server)
 
-cshttp is distributed as source files. Copy the `cshttp` folder from `src/cshttp/` into your project. All 19 files use the `CsHttp` namespace.
+`cshttp.server` 1.0 is a self-contained HTTP/1.1 & HTTPS server that binds directly to TCP sockets. It uses a **Zero-Thread IOCP Idle State** while connections wait for their first byte or sit in HTTP Keep-Alive, and immediately hands off active requests to a **Synchronous Worker Burst Loop** so application handlers remain 100% synchronous (`Action<HttpContext>`) with zero `async/await` viral infection.
 
-| File | Purpose |
-|------|---------|
-| `HttpParser.cs` | Core parser — start-line, headers, body framing |
-| `HttpMessage.cs` | Message models with lazy content properties |
-| `HttpHeaderCollection.cs` | Wire-order headers, case-insensitive access |
-| `ParserOptions.cs` | Envelope parser configuration and callbacks |
-| `ParseResult.cs` | Parse result with success/failure/warnings |
-| `ParseError.cs` | Error kinds and error model |
-| `ParseWarning.cs` | Warning kinds and warning model |
-| `ContentParserOptions.cs` | Content parser limits and policies |
-| `PercentDecoder.cs` | %HH decoding with UTF-8 validation |
-| `QueryStringParser.cs` | URL query string parsing |
-| `FormParser.cs` | application/x-www-form-urlencoded parsing |
-| `MultipartParser.cs` | multipart/form-data with file upload support |
-| `CookieParser.cs` | Cookie request header parsing |
-| `SetCookieParser.cs` | Set-Cookie response header parsing |
-| `HttpContentCollection.cs` | Key-value collection for content parameters |
-| `HttpPostedFile.cs` | Uploaded file model |
-| `HttpPostedFileCollection.cs` | Uploaded file collection |
-| `SetCookie.cs` | Set-Cookie model with all attributes |
-| `HttpResponse.cs` | HTTP response byte array builder |
+```csharp
+using System;
+using System.Net;
+using cshttp;
 
-No NuGet packages. No framework references beyond the base class library.
+public static class Program
+{
+    public static void Main()
+    {
+        var options = new ServerOptions
+        {
+            ContentRoot = AppDomain.CurrentDomain.BaseDirectory,
+            MaxConnections = 10000,
+            MaxRequestBodySize = 30L * 1024 * 1024
+        };
+        options.ListenHttp(IPAddress.Loopback, 8080);
 
-**Requirements:** C# 7.3 or later. .NET Framework 4.8, .NET 6.0, or any compatible runtime.
+        new HttpServer(options).Run(ctx => // Blocks until Ctrl+C / SIGTERM, then drains gracefully
+        {
+            string path = ctx.Request.Path.ToLowerInvariant().TrimEnd('/');
 
-**Build:**
+            if (StaticFiles.TryServe(ctx, "/css/", "css")) return;
+            if (StaticFiles.TryServe(ctx, "/js/", "js")) return;
+
+            switch (path)
+            {
+                case "":
+                case "/hello":
+                    ctx.Response.Write("Hello from cshttp.server 1.0!");
+                    return;
+            }
+
+            ctx.Response.StatusCode = 404;
+            ctx.Response.Write("404 Not Found");
+        });
+    }
+}
+```
+
+### Concurrency Stress-Test Highlights (1,500 Idle Keep-Alive Connections + 50 Active Clients)
+*Tested on an Intel Core i7-4770S (4 Cores / 8 Threads @ 3.10 GHz, 24 GB RAM):*
+
+| Server Architecture Strategy | Idle Conns Accepted | Active Throughput (`.NET 10`) | Active Throughput (`.NET 4.8`) | `p99` Latency (`.NET 10`) | OS Threads Added by Idle Conns |
+| :--- | :---: | ---: | ---: | ---: | :---: |
+| **`cshttp.server.alpha.1.0`** (1 Thread/Conn, `MaxConn=1000`) | 1,000 / 1,500 ❌ | **0 req/s** ❌ | **0 req/s** ❌ | — | +1,001 |
+| **`cshttp.server.alpha.1.0`** (1 Thread/Conn, `MaxConn=2000`) | 1,500 / 1,500 | 12,997 req/s | 7,444 req/s | 36.10 ms | +1,500 |
+| **Paper Reference Model** (`AcceptAsync` + `Task.Run` + `Async I/O`) | 1,500 / 1,500 | 31,758 req/s | 32,546 req/s | 11.12 ms | +0 |
+| **Official `cshttp.server` 1.0** (0-Thread IOCP Idle + Sync Worker) | **1,500 / 1,500** ✅ | **62,031 req/s** 🏆 | **49,966 req/s** 🏆 | **6.32 ms** 🏆 | **+1** 🏆 |
+
+👉 **[Read the Deep-Dive Specification & Code Examples for `cshttp.server` (Tier 3 Wiki)](./wiki/3-cshttp-server-Engine.md)**  
+👉 **[Read the Full Architecture Stress-Test & Benchmark White Paper](./wiki/4-Benchmark-Report.md)**
+
+---
+
+## 6. Migrating an IIS (`System.Web`) App to a Standalone `.exe` in 5 Steps
+
+See [`tests/test-hearth-file-manager/`](./tests/test-hearth-file-manager/) for a complete production file manager migrated from IIS (`Global.asax.cs` + `web.config`) to a self-contained `.exe`:
+
+1. Replace `using System.Web;` and `using System.Web.Hosting;` with `using cshttp;`.
+2. Turn `Global.asax.cs` into `Program.Main`: put `Application_Start` initialization before `server.Run(BeginRequest)`, and keep your `Application_BeginRequest` `switch (path)` router inside `BeginRequest(HttpContext ctx)`.
+3. Add `StaticFiles.TryServe(ctx, "/css/", "css")` lines at the top of `BeginRequest` for static folders previously served by IIS (or offload them to Nginx).
+4. Move `web.config` request limits (`maxAllowedContentLength`) into `ServerOptions.MaxRequestBodySize`.
+5. Remove the `System.Web` assembly reference and set `<OutputType>Exe</OutputType>`. Your project now compiles and runs identically on **`.NET Framework 4.8`** and **`.NET 8 / 10+`**.
+
+---
+
+## 7. Building & Running the Test and Benchmark Suites
 
 ```bash
-dotnet build
-dotnet run
+# 1. Build the entire solution in Release mode (net48 + net8.0/net10.0)
+dotnet build cshttp.sln -c Release
+
+# 2. Run the 95 RFC compliance, security, socket, and fuzz tests on .NET 10 and .NET Framework 4.8
+dotnet run --project tests/cshttp.Tests/cshttp.Tests.csproj -c Release -f net10.0
+dotnet run --project tests/cshttp.Tests/cshttp.Tests.csproj -c Release -f net48
+
+# 3. Run the concurrency & architecture stress-test benchmark on .NET 10 and .NET Framework 4.8
+dotnet run --project tests/benchmark-test/cshttp.Benchmark.csproj -c Release -f net10.0
+dotnet run --project tests/benchmark-test/cshttp.Benchmark.csproj -c Release -f net48
 ```
 
 ---
 
-## Who This Is For
+## 8. Documentation Index
 
-**Custom servers** — build a web server from `TcpListener` and raw sockets with production-grade HTTP parsing.
-
-**Reverse proxies and gateways** — read requests from one socket, inspect them, route to another.
-
-**IoT and embedded devices** — HTTP endpoints on resource-constrained .NET runtimes where ASP.NET Core is too heavy.
-
-**Testing and analysis** — mock servers, traffic recorders, protocol analyzers, packet capture tools.
-
-**Webhook receivers** — lightweight console applications that listen for POST requests from external services.
-
-**Learning** — understand HTTP at the byte level with a parser that shows exactly what the specification requires, decision by decision.
-
-cshttp does not replace ASP.NET Core. It fills a gap that makes ASP.NET Core *optional* — for the scenarios where the full framework was always more than you needed.
-
----
-
-## Documentation
-
-For the complete technical specification — full API reference, configuration options, specification coverage tables, content parser details, and security defense documentation — see the **[Technical Specification (Wiki)](https://github.com/adriancs2/cshttp/wiki)**.
+* **[Tier 1 Wiki: `cshttp` Wire Engine Specification & Examples](./wiki/1-cshttp-Wire-Engine.md)**
+* **[Tier 2 Wiki: `cshttp.web` Content Toolkit & `System.Web` Drop-In Guide](./wiki/2-cshttp-web-Toolkit.md)**
+* **[Tier 3 Wiki: `cshttp.server` 1.0 Server Configuration, TLS & Nginx Deployment](./wiki/3-cshttp-server-Engine.md)**
+* **[White Paper: HTTP Listener Strategies & Concurrency Benchmark Report](./wiki/4-Benchmark-Report.md)**
 
 ---
 
 ## License
 
-**Public Domain.** No rights reserved. No conditions. No restrictions. Use it for any purpose, without attribution, without permission.
-
----
-
-*cshttp is built against [RFC 9112: HTTP/1.1](https://www.rfc-editor.org/rfc/rfc9112), [RFC 9110: HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110), [RFC 3986: URI](https://www.rfc-editor.org/rfc/rfc3986), [RFC 6265: Cookies](https://www.rfc-editor.org/rfc/rfc6265), [RFC 7578: Multipart](https://www.rfc-editor.org/rfc/rfc7578), and the [WHATWG URL Standard](https://url.spec.whatwg.org/).*
+Released into the **Public Domain** under **The Unlicense**. No rights reserved.

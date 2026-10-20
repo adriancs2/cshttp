@@ -1,0 +1,20 @@
+<Project>
+  <!--
+    Shared settings for every cshttp v2 project.
+
+    Zero dependencies: no PackageReference anywhere. LangVersion is pinned to 7.3
+    (the .NET Framework 4.8 default) so all source stays copy-paste compatible with
+    a classic .NET Framework 4.8 project. All projects share the namespace "cshttp".
+  -->
+  <PropertyGroup>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <Deterministic>true</Deterministic>
+    <RootNamespace>cshttp</RootNamespace>
+    <Version>2.0.0</Version>
+    <Authors>cshttp</Authors>
+    <Product>cshttp</Product>
+    <NoWarn>$(NoWarn);SYSLIB0039</NoWarn>
+  </PropertyGroup>
+</Project>

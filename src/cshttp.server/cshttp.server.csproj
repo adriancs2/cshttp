@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!-- cshttp.server (1.0): Zero-thread IOCP idle connections, synchronous worker execution, TLS, limits, graceful shutdown. -->
+  <PropertyGroup>
+    <TargetFrameworks>net48;net8.0</TargetFrameworks>
+    <AssemblyName>cshttp.server</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\cshttp\cshttp.csproj" />
+    <ProjectReference Include="..\cshttp.web\cshttp.web.csproj" />
+  </ItemGroup>
+</Project>
