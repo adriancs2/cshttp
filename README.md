@@ -1,4 +1,4 @@
-﻿# cshttp
+# cshttp
 
 **A Zero-Dependency, Modular HTTP/1.1 Stack & Standalone Web Server for C#.**  
 **Runs identically on `.NET Framework 4.8` and `.NET 8 / 10+` — No IIS. No Kestrel. Zero NuGet Packages.**
@@ -12,7 +12,7 @@ In systems programming languages, the boundary between the network socket, the w
 Historically, C# developers faced two painful gaps:
 
 1. **The All-or-Nothing Framework Tax:** If you wanted to parse HTTP/1.1 or listen for HTTP requests in .NET without adopting the entirety of ASP.NET (`System.Web` + IIS) or ASP.NET Core (`Microsoft.AspNetCore.*` + Kestrel + DI + Middleware pipelines), your only choices were the Windows-bound `HttpListener` (`http.sys`) or a fragile hand-rolled string splitter that silently breaks on chunked transfer encoding, HTTP request smuggling, bare CR injection, or multipart file uploads.
-2. **The IIS Lock-In for `.NET Framework 4.8` Applications:** Thousands of battle-tested C# web applications (including high-speed **Pageless ASP.NET Web Forms** applications) are written against `HttpContext.Current`, `Request.QueryString`, `Request.Form`, `Request.Files`, `Response.Write`, and `HostingEnvironment.MapPath`. Until now, running those applications outside IIS—as a self-contained `.exe`, a Windows Service, or a Linux `systemd` service on `.NET 8/10`—required a ground-up rewrite to ASP.NET Core.
+2. **Missing Synchronous, Classic `System.Web` Ergonomics Outside IIS:** Many C# developers prefer straightforward, synchronous request handling (`HttpContext.Current`, `Request.QueryString`, `Request.Form`, `Request.Files`, `Response.Write`, and a simple `switch` router) over complex DI containers, controller reflection, and viral `async/await` pipelines. Until now, getting that clean `System.Web`-style developer experience in a self-contained `.exe` across both `.NET Framework 4.8` and `.NET 8/10+` was impossible.
 
 **`cshttp` solves both problems.** Written in pure **C# 7.3** with **zero external dependencies** and a single namespace (`cshttp`), it provides a clean 3-tier modular HTTP/1.1 stack that you can embed as source files or reference as lightweight class libraries.
 
@@ -25,7 +25,7 @@ This repository is organized into **three modular library tiers** (`src/`) and a
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                         YOUR C# APPLICATION CODE                             │
-│         (Switch Router + Synchronous Handlers / Migrated Web Forms)          │
+│              (Simple Switch Router + Synchronous C# Handlers)                │
 └───────────────────────────────────────┬──────────────────────────────────────┘
                                         │
                                         ▼
@@ -58,8 +58,8 @@ This repository is organized into **three modular library tiers** (`src/`) and a
 | :--- | :--- | :--- |
 | **`cshttp`**<br>*(Tier 1 — 7 files)* | Pure byte-level RFC 9112 HTTP/1.1 request-head parser, incremental zero-copy `ChunkedDecoder`, and `HttpResponseWriter`. Performs **zero socket I/O** and allocates nothing until a full header block arrives. | Choose **`cshttp` only** when you are building a **custom TCP reverse proxy, API gateway, packet analyzer, traffic recorder, or embedded socket loop** where you already manage raw `byte[]` buffers and only need strict RFC 9112 framing and request-smuggling protection. |
 | **`cshttp.web`**<br>*(Tier 2 — 11 files)* | Full content toolkit and `System.Web`-compatible object model (`HttpContext.Current`, `HttpRequest`, `HttpResponse`, lazy `QueryString` / `Form` / `Files` / `Cookies`, `StaticFiles`, `HostingEnvironment`, `HttpUtility`). | Choose **`cshttp` + `cshttp.web`** when you want rich, lazy-evaluated form/multipart/cookie parsing and `System.Web` handler ergonomics **over your own custom transport** (e.g., custom async socket pipelines, named pipes, or **in-memory unit testing of web handlers without opening a TCP port**). |
-| **`cshttp.server`**<br>*(Tier 3 — 3 files)* | Production standalone HTTP/1.1 & HTTPS server engine using **Zero-Thread IOCP Idle Keep-Alive + Synchronous Worker Execution** (capable of **62,000+ RPS** with 1,500 concurrent connections on a 4-core CPU). | Choose the **full `cshttp.server` stack** when building a **self-contained C# web application, microservice, or internal tool** without IIS or Kestrel, or when **migrating an existing ASP.NET Web Forms / Pageless application into a standalone `.exe`** that runs on Windows or Linux. |
-| **`tests/`**<br>*(Tests, Benchmarks & Demo App)* | • [`tests/cshttp.Tests`](./tests/cshttp.Tests/): 95 RFC, security, socket, and seeded fuzz tests.<br>• [`tests/benchmark-test`](./tests/benchmark-test/): Concurrency stress-test suite.<br>• [`tests/test-hearth-file-manager`](./tests/test-hearth-file-manager/): Full production app ported from IIS to `cshttp.server`. | Use these projects to verify RFC compliance on `.NET 4.8` and `.NET 10`, reproduce our concurrency benchmark numbers, or study a complete real-world IIS-to-Console migration. |
+| **`cshttp.server`**<br>*(Tier 3 — 3 files)* | Production standalone HTTP/1.1 & HTTPS server engine using **Zero-Thread IOCP Idle Keep-Alive + Synchronous Worker Execution** (capable of **62,000+ RPS** with 1,500 concurrent connections on a 4-core CPU). | Choose the **full `cshttp.server` stack** when building a **self-contained C# web application, API server, microservice, or embedded web UI** that compiles into a standalone `.exe` and runs on Windows or Linux without IIS or Kestrel. |
+| **`tests/`**<br>*(Tests, Benchmarks & Demo App)* | • [`tests/cshttp.Tests`](./tests/cshttp.Tests/): 95 RFC, security, socket, and seeded fuzz tests.<br>• [`tests/benchmark-test`](./tests/benchmark-test/): Concurrency stress-test suite.<br>• [`tests/test-hearth-file-manager`](./tests/test-hearth-file-manager/): Full production web application running on `cshttp.server`. | Use these projects to verify RFC compliance on `.NET 4.8` and `.NET 10`, reproduce our concurrency benchmark numbers, or explore a complete real-world application built on `cshttp`. |
 
 ---
 
@@ -184,15 +184,12 @@ public static class Program
 
 ---
 
-## 6. Migrating an IIS (`System.Web`) App to a Standalone `.exe` in 5 Steps
+## 6. Real-World Application Showcase: Hearth File Manager
 
-See [`tests/test-hearth-file-manager/`](./tests/test-hearth-file-manager/) for a complete production file manager migrated from IIS (`Global.asax.cs` + `web.config`) to a self-contained `.exe`:
+See [`tests/test-hearth-file-manager/`](./tests/test-hearth-file-manager/) for a complete, non-trivial application running on `cshttp.server` as a self-contained `.exe`:
 
-1. Replace `using System.Web;` and `using System.Web.Hosting;` with `using cshttp;`.
-2. Turn `Global.asax.cs` into `Program.Main`: put `Application_Start` initialization before `server.Run(BeginRequest)`, and keep your `Application_BeginRequest` `switch (path)` router inside `BeginRequest(HttpContext ctx)`.
-3. Add `StaticFiles.TryServe(ctx, "/css/", "css")` lines at the top of `BeginRequest` for static folders previously served by IIS (or offload them to Nginx).
-4. Move `web.config` request limits (`maxAllowedContentLength`) into `ServerOptions.MaxRequestBodySize`.
-5. Remove the `System.Web` assembly reference and set `<OutputType>Exe</OutputType>`. Your project now compiles and runs identically on **`.NET Framework 4.8`** and **`.NET 8 / 10+`**.
+* **Features:** Multi-user web file manager with chunked drag-and-drop uploads, zip/unzip streaming, static asset caching (`ETag` / `304`), cookie-based session authentication, and an integrated Gemini AI website builder.
+* **Architecture:** Uses a clean `switch (path)` router in `Program.cs`, synchronous page/API handler classes using `HttpContext.Current`, `Request.Form`, `Request.Files`, and `StaticFiles.TryServe`, backed by an automated 46-check end-to-end HTTP test suite (`e2e-test.ps1`).
 
 ---
 
