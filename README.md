@@ -3,6 +3,8 @@
 **A Zero-Dependency, Modular HTTP/1.1 Stack & Standalone Web Server for C#.**  
 **Runs identically on `.NET Framework 4.8` and `.NET 8 / 10+` — No IIS. No Kestrel. Zero NuGet Packages.**
 
+Read blog post: [The World First TRUE BEGINNER C# Web Development Framework - cshttp - adriancs.com](https://adriancs.com/the-world-first-true-beginner-csharp-web-development-framework)
+
 ---
 
 ## 1. Why This Project Exists & The Problems It Solves
