@@ -491,7 +491,7 @@ namespace cshttp.Tests
 
             t.Add("response: TransmitFile streams file, ranges and HEAD", () =>
             {
-                string path = Path.GetTempFileName();
+                string path = Path.Combine(Path.GetTempPath(), "cshttp-tf-" + Guid.NewGuid().ToString("N") + ".txt");
                 try
                 {
                     File.WriteAllText(path, "0123456789");
@@ -505,18 +505,19 @@ namespace cshttp.Tests
                     A.Contains(sink.HeadText, "Content-Length: 5");
 
                     res = MakeResponse(out sink, "HEAD / HTTP/1.1\r\nHost: h\r\n\r\n");
-                    res.TransmitFile(path);
+                    A.True(res.TransmitFile(path), "head transmit");
                     res.Complete();
                     A.Contains(sink.HeadText, "Content-Length: 10");
                     A.Eq("", sink.Body);
 
                     res = MakeResponse(out sink);
                     res.BufferOutput = false;
-                    res.TransmitFile(path);
+                    A.True(res.TransmitFile(path), "stream transmit");
                     res.Complete();
                     A.Eq("a\r\n0123456789\r\n0\r\n\r\n", sink.Body);
 
-                    A.Throws<FileNotFoundException>(() => MakeResponse(out sink).TransmitFile(path + ".missing"));
+                    A.False(MakeResponse(out sink).TransmitFile(path + ".missing"), "missing file returns false");
+                    A.Throws<FileNotFoundException>(() => MakeResponse(out sink).TransmitFile(path + ".missing", 0, -1));
                 }
                 finally { File.Delete(path); }
             });

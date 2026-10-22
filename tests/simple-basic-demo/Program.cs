@@ -57,7 +57,6 @@ static class Program
 	</html>
 	";
 		Response.Write(html);
-		Response.End();
 	}
 
 	static void HandleAbout()
@@ -76,7 +75,6 @@ static class Program
 	</html>
 	";
 		Response.Write(html);
-		Response.End();
 	}
 
 	static void HandleContact()
@@ -95,7 +93,6 @@ static class Program
 	</html>
 	";
 		Response.Write(html);
-		Response.End();
 	}
 
 	static void HandleNotFound()
@@ -115,6 +112,5 @@ static class Program
 	";
 		Response.StatusCode = 404;
 		Response.Write(html);
-		Response.End();
 	}
 }

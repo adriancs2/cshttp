@@ -78,7 +78,11 @@ namespace cshttp.Tests
 
             if (path.StartsWith("/static/"))
             {
-                StaticFiles.TryServe(ctx, new StaticFileOptions("/static/", "static"));
+                string filePath = WebApp.MapPath(Request.Path);
+                if (!Response.TransmitFile(filePath))
+                {
+                    Response.StatusCode = 404;
+                }
                 return;
             }
 

@@ -33,11 +33,55 @@ namespace cshttp
             set { _options = value; }
         }
 
-        /// <summary>Application root folder for MapPath and static files. Defaults to the executable's directory.</summary>
+        /// <summary>Application root folder for MapPath and static files. Defaults to the project folder in dev or executable's directory.</summary>
         public static string ContentRoot
         {
-            get { return Options.ContentRoot; }
+            get
+            {
+                if (string.IsNullOrEmpty(Options.ContentRoot) || Options.ContentRoot == AppDomain.CurrentDomain.BaseDirectory)
+                {
+                    string autoRoot = AutoFindContentRoot();
+                    if (!string.IsNullOrEmpty(autoRoot))
+                    {
+                        Options.ContentRoot = autoRoot;
+                    }
+                }
+                return Options.ContentRoot;
+            }
             set { Options.ContentRoot = value; }
+        }
+
+        static string AutoFindContentRoot()
+        {
+            try
+            {
+                var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+                while (dir != null)
+                {
+                    if (Directory.Exists(Path.Combine(dir.FullName, "css")) && Directory.Exists(Path.Combine(dir.FullName, "js")))
+                    {
+                        return dir.FullName;
+                    }
+                    dir = dir.Parent;
+                }
+            }
+            catch { }
+            return AppDomain.CurrentDomain.BaseDirectory;
+        }
+
+        /// <summary>
+        /// Safely maps a virtual URL path (e.g. "/css/site.css") to a physical path under the application root.
+        /// Returns null if the path contains traversal segments (".."), invalid characters, or escapes the root.
+        /// </summary>
+        public static string MapPath(string virtualPath)
+        {
+            if (string.IsNullOrEmpty(virtualPath)) return null;
+            string root = !string.IsNullOrEmpty(_options != null ? _options.ContentRoot : null)
+                ? _options.ContentRoot
+                : HostingEnvironment.ApplicationPhysicalPath;
+            if (virtualPath == "~" || virtualPath == "~/" || virtualPath == "/")
+                return Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+            return StaticFiles.SafeCombine(root, virtualPath);
         }
 
         /// <summary>Default HTTP port when calling WebApp.Run(OnRequest). Defaults to 8080.</summary>
@@ -198,6 +242,7 @@ namespace cshttp
         public static string[] AcceptTypes { get { return Current.AcceptTypes; } }
         public static string[] UserLanguages { get { return Current.UserLanguages; } }
         public static string MapPath(string virtualPath) { return Current.MapPath(virtualPath); }
+        public static string Item(string key) { return Current[key]; }
     }
 
     /// <summary>
@@ -250,7 +295,7 @@ namespace cshttp
         public static void Write(object obj) { Current.Write(obj); }
         public static void BinaryWrite(byte[] buffer) { Current.BinaryWrite(buffer); }
         public static void WriteBytes(byte[] buffer, int offset, int count) { Current.WriteBytes(buffer, offset, count); }
-        public static void TransmitFile(string filename) { Current.TransmitFile(filename); }
+        public static bool TransmitFile(string filename) { return Current.TransmitFile(filename); }
         public static void TransmitFile(string filename, long offset, long length) { Current.TransmitFile(filename, offset, length); }
         public static void WriteFile(string filename) { Current.WriteFile(filename); }
         public static void WriteFile(string filename, bool readIntoMemory) { Current.WriteFile(filename, readIntoMemory); }

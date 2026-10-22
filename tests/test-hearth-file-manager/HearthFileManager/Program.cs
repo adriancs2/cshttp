@@ -58,14 +58,20 @@ namespace HearthFileManager
             Response.AppendHeader("X-Content-Type-Options", "nosniff");
             Response.AppendHeader("Referrer-Policy", "same-origin");
 
-            // static assets: IIS used to serve these
-            if (StaticFiles.TryServe("/css/", "css")) return;
-            if (StaticFiles.TryServe("/js/", "js")) return;
-            if (StaticFiles.TryServe("/assets/", "assets")) return;
+            string path = Request.Path.ToLower();
+
+            // static files
+            if (path.StartsWith("/css/") || path.StartsWith("/js/") || path.StartsWith("/assets/"))
+            {
+                string filePath = WebApp.MapPath(path);
+                if (!Response.TransmitFile(filePath))
+                {
+                    Response.StatusCode = 404;
+                }
+                return;
+            }
 
             AppSession.TryRestoreFromCookie();
-
-            string path = Request.Path.ToLower();
 
             switch (path)
             {

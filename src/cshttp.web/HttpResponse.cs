@@ -43,6 +43,7 @@ namespace cshttp
         int _statusCode = 200;
         string _statusDescription;
         string _contentType = "text/html";
+        bool _contentTypeExplicit;
         string _charset = "utf-8";
         Encoding _contentEncoding = Utf8NoBom;
         string _cacheControl = "private";
@@ -112,6 +113,7 @@ namespace cshttp
             {
                 EnsureHeadersNotSent("Server cannot set content type after HTTP headers have been sent.");
                 _contentType = value;
+                _contentTypeExplicit = true;
             }
         }
 
@@ -180,7 +182,7 @@ namespace cshttp
         {
             EnsureHeadersNotSent("Server cannot append header after HTTP headers have been sent.");
             HttpResponseWriter.ValidateHeader(name, value);
-            if (string.Equals(name, "Content-Type", StringComparison.OrdinalIgnoreCase)) { _contentType = value; return; }
+            if (string.Equals(name, "Content-Type", StringComparison.OrdinalIgnoreCase)) { _contentType = value; _contentTypeExplicit = true; return; }
             if (string.Equals(name, "Cache-Control", StringComparison.OrdinalIgnoreCase)) { _cacheControl = value; return; }
             if (string.Equals(name, "Location", StringComparison.OrdinalIgnoreCase)) { _redirectLocation = value; return; }
             _headers.Add(name, value);
@@ -293,7 +295,101 @@ namespace cshttp
             AfterWrite();
         }
 
-        public void TransmitFile(string filename) { TransmitFile(filename, 0, -1); }
+        /// <summary>
+        /// Transmits a file to the browser with automatic MIME type detection, browser caching (ETag, Last-Modified, 304),
+        /// and single byte-range support (206/416) when serving static files.
+        /// Returns true if the file exists and was handled; returns false if the file does not exist or its type is not allowed.
+        /// </summary>
+        public bool TransmitFile(string filename)
+        {
+            if (string.IsNullOrEmpty(filename) || !CanWrite) return false;
+
+            FileInfo fi;
+            try
+            {
+                fi = new FileInfo(filename);
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (!fi.Exists) return false;
+            if ((fi.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0) return false;
+
+            // If the caller already set ContentType explicitly (or already buffered body data like "[234]"),
+            // stream the raw file directly without overriding static-file headers.
+            if (_contentTypeExplicit || _segments.Count > 0 || _headersSent)
+            {
+                TransmitRawFile(fi, 0, fi.Length);
+                return true;
+            }
+
+            string contentType = MimeTypes.Get(fi.Extension);
+            if (contentType == null) return false;
+
+            HttpContext ctx = HttpContext.Current;
+            HttpRequest req = ctx != null ? ctx.Request : null;
+
+            if (req != null)
+            {
+                string method = req.HttpMethod;
+                if (method != "GET" && method != "HEAD")
+                {
+                    StatusCode = 405;
+                    AppendHeader("Allow", "GET, HEAD");
+                    ContentType = "text/plain";
+                    Write("Method Not Allowed");
+                    return true;
+                }
+            }
+
+            long length = fi.Length;
+            DateTime lastModified = new DateTime(fi.LastWriteTimeUtc.Ticks - (fi.LastWriteTimeUtc.Ticks % TimeSpan.TicksPerSecond), DateTimeKind.Utc);
+            string etag = "\"" + fi.LastWriteTimeUtc.Ticks.ToString("x", System.Globalization.CultureInfo.InvariantCulture) + "-" + length.ToString("x", System.Globalization.CultureInfo.InvariantCulture) + "\"";
+
+            _contentType = contentType;
+            if (req != null && req.QueryString["v"] != null)
+                _cacheControl = "public, max-age=31536000, immutable";
+            else
+                _cacheControl = "public, max-age=3600";
+
+            AppendHeader("Accept-Ranges", "bytes");
+            AppendHeader("ETag", etag);
+            AppendHeader("Last-Modified", HttpDate.Format(lastModified));
+
+            if (req != null && StaticFiles.IsNotModified(req, etag, lastModified))
+            {
+                StatusCode = 304;
+                return true;
+            }
+
+            if (req != null)
+            {
+                string range = req.Head.Headers.Get("Range");
+                if (range != null && req.HttpMethod == "GET" && StaticFiles.IfRangeMatches(req, etag, lastModified))
+                {
+                    long start, end;
+                    int r = StaticFiles.ParseRange(range, length, out start, out end);
+                    if (r == 416)
+                    {
+                        StatusCode = 416;
+                        AppendHeader("Content-Range", "bytes */" + length.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        return true;
+                    }
+                    if (r == 206)
+                    {
+                        StatusCode = 206;
+                        AppendHeader("Content-Range", "bytes " + start + "-" + end + "/" + length);
+                        TransmitRawFile(fi, start, end - start + 1);
+                        return true;
+                    }
+                }
+            }
+
+            TransmitRawFile(fi, 0, length);
+            return true;
+        }
 
         /// <summary>Queues (part of) a file; it is streamed from disk when the response is sent.</summary>
         public void TransmitFile(string filename, long offset, long length)
@@ -305,6 +401,11 @@ namespace cshttp
             if (length < 0) length = fi.Length - offset;
             if (offset + length > fi.Length) throw new ArgumentOutOfRangeException("length");
             if (!CanWrite) return;
+            TransmitRawFile(fi, offset, length);
+        }
+
+        void TransmitRawFile(FileInfo fi, long offset, long length)
+        {
             FlushEncoderToSegments();
             if (length > 0) _segments.Add(new Segment { File = fi.FullName, FileOffset = offset, FileLength = length });
             AfterWrite();
@@ -341,6 +442,7 @@ namespace cshttp
             _statusCode = 200;
             _statusDescription = null;
             _contentType = "text/html";
+            _contentTypeExplicit = false;
             _cacheControl = "private";
             _redirectLocation = null;
             _cache = null;

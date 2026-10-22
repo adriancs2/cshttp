@@ -209,8 +209,13 @@ namespace cshttp
         }
 
         /// <summary>Maps a decoded relative URL path into root, or null if it is unsafe or escapes root.</summary>
-        static string SafeCombine(string root, string rel)
+        public static string SafeCombine(string root, string rel)
         {
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(rel)) return null;
+            root = Path.GetFullPath(root);
+            if (root[root.Length - 1] != Path.DirectorySeparatorChar) root += Path.DirectorySeparatorChar;
+            if (rel.StartsWith("~/", StringComparison.Ordinal)) rel = rel.Substring(2);
+            else if (rel.StartsWith("/", StringComparison.Ordinal)) rel = rel.Substring(1);
             if (rel.Length == 0) return null;
             if (rel.IndexOf('\0') >= 0 || rel.IndexOf('\\') >= 0 || rel.IndexOf(':') >= 0) return null;
             string[] segments = rel.Split('/');
@@ -242,7 +247,7 @@ namespace cshttp
             return "public, max-age=" + ((long)maxAge.TotalSeconds).ToString(CultureInfo.InvariantCulture);
         }
 
-        static bool IsNotModified(HttpRequest req, string etag, DateTime lastModified)
+        internal static bool IsNotModified(HttpRequest req, string etag, DateTime lastModified)
         {
             string inm = req.Head.Headers.GetCombined("If-None-Match");
             if (inm != null)
@@ -261,7 +266,7 @@ namespace cshttp
             return false;
         }
 
-        static bool IfRangeMatches(HttpRequest req, string etag, DateTime lastModified)
+        internal static bool IfRangeMatches(HttpRequest req, string etag, DateTime lastModified)
         {
             string ifRange = req.Head.Headers.Get("If-Range");
             if (ifRange == null) return true;
