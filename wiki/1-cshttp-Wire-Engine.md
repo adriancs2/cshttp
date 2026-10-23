@@ -77,8 +77,8 @@ switch (result.Status)
         Console.WriteLine($"Version    : {head.Version}");      // "HTTP/1.1" or "HTTP/1.0"
         Console.WriteLine($"Host       : {head.Host}");         // Validated Host header or absolute-URI authority
         Console.WriteLine($"KeepAlive  : {head.KeepAlive}");    // RFC 9112 Connection keep-alive resolution
-        Console.WriteLine($"BodyKind   : {head.BodyKind}");     // None, ContentLength, or Chunked
-        Console.WriteLine($"ContentLen : {head.ContentLength}");// Declared bytes, 0, or -1 for Chunked
+        Console.WriteLine($"BodyKind   : {head.BodyKind}");     // None (no body or Content-Length: 0), ContentLength, or Chunked
+        Console.WriteLine($"ContentLen : {head.ContentLength}");// Declared bytes, 0 when no body, or -1 for Chunked
         break;
 }
 ```
@@ -92,7 +92,7 @@ switch (result.Status)
 | Attack Vector | `cshttp` Defense | Error Status |
 | :--- | :--- | :---: |
 | **TE.CL / CL.TE Request Smuggling** | Rejects any request containing both `Transfer-Encoding` and `Content-Length` (`RFC 9112 §6.3`). | `400 Bad Request` |
-| **Duplicate / Conflicting `Content-Length`** | Rejects multiple `Content-Length` headers or comma-separated lists with differing values (e.g. `Content-Length: 5, 10`). | `400 Bad Request` |
+| **Duplicate / Conflicting `Content-Length`** | Rejects multiple `Content-Length` headers or comma-separated lists whose values differ (e.g. `Content-Length: 5, 10`); identical repeats (`5, 5`) are accepted as RFC 9112 §6.3 allows. | `400 Bad Request` |
 | **Transfer-Encoding Obfuscation** | Rejects `Transfer-Encoding` in HTTP/1.0; requires the final coding to be `chunked`; rejects `chunked` applied more than once; rejects unknown transfer codings. | `400` / `501` |
 | **Bare CR / Bare LF Injection** | Rejects bare `\r` anywhere in the start-line or headers; rejects bare `\n` unless `ParserOptions.AllowBareLf = true`. | `400 Bad Request` |
 | **Obsolete Line Folding (`obs-fold`)** | Rejects header continuation lines starting with `SP` or `HTAB` (`RFC 9112 §5.2`). | `400 Bad Request` |

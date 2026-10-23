@@ -234,7 +234,6 @@ namespace cshttp
         public static byte[] BinaryRead(int count) { return Current.BinaryRead(count); }
         public static bool IsSecureConnection { get { return Current.IsSecureConnection; } }
         public static string UserHostAddress { get { return Current.UserHostAddress; } }
-        public static string UserHostName { get { return Current.UserHostName; } }
         public static bool IsLocal { get { return Current.IsLocal; } }
         public static bool IsAuthenticated { get { return Current.IsAuthenticated; } }
         public static string UserAgent { get { return Current.UserAgent; } }
@@ -263,7 +262,6 @@ namespace cshttp
 
         public static int StatusCode { get { return Current.StatusCode; } set { Current.StatusCode = value; } }
         public static string StatusDescription { get { return Current.StatusDescription; } set { Current.StatusDescription = value; } }
-        public static int SubStatusCode { get { return Current.SubStatusCode; } set { Current.SubStatusCode = value; } }
         public static string Status { get { return Current.Status; } }
         public static string ContentType { get { return Current.ContentType; } set { Current.ContentType = value; } }
         public static string Charset { get { return Current.Charset; } set { Current.Charset = value; } }
@@ -273,15 +271,12 @@ namespace cshttp
         public static HttpCachePolicy Cache { get { return Current.Cache; } }
         public static HttpHeaders Headers { get { return Current.Headers; } }
         public static HttpCookieCollection Cookies { get { return Current.Cookies; } }
-        public static void AddHeader(string name, string value) { Current.AddHeader(name, value); }
         public static void AppendHeader(string name, string value) { Current.AppendHeader(name, value); }
         public static void SetHeader(string name, string value) { Current.SetHeader(name, value); }
         public static void AppendCookie(HttpCookie cookie) { Current.AppendCookie(cookie); }
         public static void SetCookie(HttpCookie cookie) { Current.SetCookie(cookie); }
         public static bool BufferOutput { get { return Current.BufferOutput; } set { Current.BufferOutput = value; } }
-        public static bool Buffer { get { return Current.Buffer; } set { Current.Buffer = value; } }
         public static bool SuppressContent { get { return Current.SuppressContent; } set { Current.SuppressContent = value; } }
-        public static bool TrySkipIisCustomErrors { get { return Current.TrySkipIisCustomErrors; } set { Current.TrySkipIisCustomErrors = value; } }
         public static bool IsRequestBeingRedirected { get { return Current.IsRequestBeingRedirected; } }
         public static bool HeadersWritten { get { return Current.HeadersWritten; } }
         public static bool IsClientConnected { get { return Current.IsClientConnected; } }
@@ -297,9 +292,6 @@ namespace cshttp
         public static void WriteBytes(byte[] buffer, int offset, int count) { Current.WriteBytes(buffer, offset, count); }
         public static bool TransmitFile(string filename) { return Current.TransmitFile(filename); }
         public static void TransmitFile(string filename, long offset, long length) { Current.TransmitFile(filename, offset, length); }
-        public static void WriteFile(string filename) { Current.WriteFile(filename); }
-        public static void WriteFile(string filename, bool readIntoMemory) { Current.WriteFile(filename, readIntoMemory); }
-        public static void WriteFile(string filename, long offset, long size) { Current.WriteFile(filename, offset, size); }
         public static void Flush() { Current.Flush(); }
         public static void Clear() { Current.Clear(); }
         public static void ClearContent() { Current.ClearContent(); }

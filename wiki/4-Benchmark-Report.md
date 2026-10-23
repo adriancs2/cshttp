@@ -164,7 +164,7 @@ void ArmIdleRead()
     IAsyncResult ar = _stream.BeginRead(_buf, 0, _buf.Length, OnFirstReadCallback, this);
     if (ar.CompletedSynchronously)
     {
-        CompleteFirstRead(ar);
+        CompleteAsyncFirstRead(ar);
     }
 }
 
@@ -172,11 +172,11 @@ static void OnFirstReadComplete(IAsyncResult ar)
 {
     if (!ar.CompletedSynchronously)
     {
-        ((Connection)ar.AsyncState).CompleteFirstRead(ar);
+        ((Connection)ar.AsyncState).CompleteAsyncFirstRead(ar);
     }
 }
 
-void CompleteFirstRead(IAsyncResult ar)
+void CompleteAsyncFirstRead(IAsyncResult ar)
 {
     _idle = false;
     int n = _stream.EndRead(ar);

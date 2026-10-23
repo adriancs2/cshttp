@@ -339,7 +339,6 @@ namespace cshttp.Tests
                 var ctx = new HttpContext(MakeRequest("GET / HTTP/1.1\r\nHost: h\r\n\r\n"), res);
                 res.ContentType = "application/json";
                 res.Write("{\"success\":true}");
-                res.TrySkipIisCustomErrors = true;
                 try { res.Flush(); } catch { }
                 res.SuppressContent = true;
                 ctx.ApplicationInstance.CompleteRequest();

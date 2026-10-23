@@ -18,7 +18,7 @@ namespace cshttp
     ///
     /// Buffered by default: when the handler finishes, everything is sent with a Content-Length.
     /// Flush() (or BufferOutput = false) sends headers early and switches to chunked encoding.
-    /// TransmitFile/WriteFile queue the file and stream it at send time without loading it in memory.
+    /// TransmitFile queues the file and stream it at send time without loading it in memory.
     /// </summary>
     public sealed class HttpResponse
     {
@@ -99,8 +99,6 @@ namespace cshttp
             }
         }
 
-        public int SubStatusCode { get; set; }
-
         public string Status
         {
             get { return _statusCode + " " + StatusDescription; }
@@ -176,8 +174,6 @@ namespace cshttp
         /// <summary>Value of the Server header; null (default) omits it. Set by the host.</summary>
         public string ServerHeader { get; set; }
 
-        public void AddHeader(string name, string value) { AppendHeader(name, value); }
-
         public void AppendHeader(string name, string value)
         {
             EnsureHeadersNotSent("Server cannot append header after HTTP headers have been sent.");
@@ -204,13 +200,8 @@ namespace cshttp
         /// <summary>When false, every write is sent immediately (chunked).</summary>
         public bool BufferOutput { get; set; }
 
-        public bool Buffer { get { return BufferOutput; } set { BufferOutput = value; } }
-
         /// <summary>Body bytes are dropped; headers (and correct framing) are still sent.</summary>
         public bool SuppressContent { get; set; }
-
-        /// <summary>No effect (there is no IIS); kept for source compatibility.</summary>
-        public bool TrySkipIisCustomErrors { get; set; }
 
         public bool IsRequestBeingRedirected { get; private set; }
 
@@ -410,12 +401,6 @@ namespace cshttp
             if (length > 0) _segments.Add(new Segment { File = fi.FullName, FileOffset = offset, FileLength = length });
             AfterWrite();
         }
-
-        public void WriteFile(string filename) { TransmitFile(filename, 0, -1); }
-
-        public void WriteFile(string filename, bool readIntoMemory) { TransmitFile(filename, 0, -1); }
-
-        public void WriteFile(string filename, long offset, long size) { TransmitFile(filename, offset, size); }
 
         // ---------------- control ----------------
 

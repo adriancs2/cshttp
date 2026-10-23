@@ -123,7 +123,6 @@ namespace cshttp.Tests
                 case "/hearth":
                     Response.ContentType = "application/json";
                     Response.Write("{\"success\":true}");
-                    Response.TrySkipIisCustomErrors = true;
                     try { Response.Flush(); } catch { }
                     Response.SuppressContent = true;
                     ctx.ApplicationInstance.CompleteRequest();
@@ -161,7 +160,7 @@ namespace cshttp.Tests
                     return;
                 case "/notmodified":
                     Response.Cache.SetCacheability(HttpCacheability.Private);
-                    Response.AddHeader("ETag", "\"abc\"");
+                    Response.AppendHeader("ETag", "\"abc\"");
                     if (Request.Headers["If-None-Match"] == "\"abc\"") Response.StatusCode = 304;
                     else Response.Write("fresh");
                     try { Response.Flush(); } catch { }

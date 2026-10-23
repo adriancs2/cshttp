@@ -23,13 +23,14 @@ As proven in our [Concurrency & Stress-Test Benchmark Report](./4-Benchmark-Repo
 
 ---
 
-## 2. File Inventory (`src/cshttp.server/` — 3 Files)
+## 2. File Inventory (`src/cshttp.server/` — 4 Files)
 
 | File | Public Types | Role |
 | :--- | :--- | :--- |
 | **[HttpServer.cs](../src/cshttp.server/HttpServer.cs)** | `HttpServer` | Socket listener bindings, pre-warmed `ThreadPool` configuration, active connection/request counters, 200 ms idle-timeout sweeper, and graceful shutdown drain (`Start`, `Run`, `Stop`). |
 | **[Connection.cs](../src/cshttp.server/Connection.cs)** | `Connection` *(internal)* | Per-socket state machine: TLS handshake (`SslStream`), Zero-Thread IOCP idle wait, synchronous worker request loop, `100-continue`, chunked body decoding, Slowloris rate checking, `X-Forwarded-*` resolution, and socket linger drain. |
 | **[ServerOptions.cs](../src/cshttp.server/ServerOptions.cs)** | `ServerOptions`, `ServerBinding` | Endpoints (`ListenHttp`, `ListenHttps`), connection caps, timeouts, Slowloris thresholds, trusted proxy IPs, and error hooks. |
+| **[WebApp.cs](../src/cshttp.server/WebApp.cs)** | `WebApp`, `Request`, `Response` (static) | Beginner-friendly entry point: `WebApp.Run(port, handler)` (single or multi-port) with auto-detected `ContentRoot` and `MapPath`, plus static `Request.*` / `Response.*` shortcuts over `HttpContext.Current` so handlers need no `ctx` parameter. |
 
 ---
 

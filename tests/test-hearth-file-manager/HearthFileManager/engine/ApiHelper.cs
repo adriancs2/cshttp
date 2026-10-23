@@ -31,7 +31,6 @@ namespace System
 
         public static void EndResponse()
         {
-            Response.TrySkipIisCustomErrors = true;
             try { Response.Flush(); } catch { }
             Response.SuppressContent = true;
             Response.CompleteRequest();

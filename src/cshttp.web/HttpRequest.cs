@@ -300,7 +300,6 @@ namespace cshttp
 
         public string UserHostAddress { get { return AddressString(_conn.RemoteAddress); } }
 
-        public string UserHostName { get { return UserHostAddress; } }
 
         /// <summary>True when the (proxy-resolved) client address is a loopback address.</summary>
         public bool IsLocal

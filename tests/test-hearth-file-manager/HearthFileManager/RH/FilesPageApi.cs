@@ -198,8 +198,8 @@ namespace HearthFileManager.RH
             {
                 string full = fs.Resolve(paths[0]);
                 Response.ContentType = "application/octet-stream";
-                Response.AddHeader("Content-Disposition", ContentDisposition("attachment", FsService.NameOf(paths[0])));
-                Response.AddHeader("Content-Length", new FileInfo(full).Length.ToString());
+                Response.AppendHeader("Content-Disposition", ContentDisposition("attachment", FsService.NameOf(paths[0])));
+                Response.AppendHeader("Content-Length", new FileInfo(full).Length.ToString());
                 Response.TransmitFile(full);
             }
             else
@@ -207,12 +207,12 @@ namespace HearthFileManager.RH
                 string name = (paths.Count == 1 ? FsService.NameOf(paths[0]) : "download") + ".zip";
                 if (name == ".zip") name = "website.zip";
                 Response.ContentType = "application/zip";
-                Response.AddHeader("Content-Disposition", ContentDisposition("attachment", name));
+                Response.AppendHeader("Content-Disposition", ContentDisposition("attachment", name));
                 // ZipArchive needs a seekable stream; build in a temp file then transmit
                 string tmp = System.IO.Path.Combine(fs.TempPath, "dl-" + Guid.NewGuid().ToString("N") + ".zip");
                 using (var f = File.Create(tmp)) fs.ZipToStream(paths, f);
-                Response.AddHeader("Content-Length", new FileInfo(tmp).Length.ToString());
-                Response.WriteFile(tmp);
+                Response.AppendHeader("Content-Length", new FileInfo(tmp).Length.ToString());
+                Response.TransmitFile(tmp);
                 Response.Flush();
                 try { File.Delete(tmp); } catch { }
             }
@@ -231,14 +231,14 @@ namespace HearthFileManager.RH
             string etag = "\"" + fi.LastWriteTimeUtc.Ticks.ToString("x") + "-" + fi.Length.ToString("x") + "\"";
             Response.Cache.SetCacheability(HttpCacheability.Private);
             Response.Cache.SetMaxAge(TimeSpan.FromDays(7));
-            Response.AddHeader("ETag", etag);
+            Response.AppendHeader("ETag", etag);
             if (Request.Headers["If-None-Match"] == etag) { Response.StatusCode = 304; ApiHelper.EndResponse(); return; }
 
             string mime = FsService.MimeOf(rel);
             Response.ContentType = mime;
             // never let uploaded SVG/HTML run script on this origin
-            Response.AddHeader("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
-            Response.AddHeader("Content-Disposition", ContentDisposition("inline", fi.Name));
+            Response.AppendHeader("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
+            Response.AppendHeader("Content-Disposition", ContentDisposition("inline", fi.Name));
             Response.TransmitFile(full);
             ApiHelper.EndResponse();
         }

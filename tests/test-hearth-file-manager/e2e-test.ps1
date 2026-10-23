@@ -112,7 +112,7 @@ try {
     $r = Api '/fileapi' 'zip' @{ paths = "[`"$d/hello.txt`",`"$d/upload.bin`"]"; name = 'bundle.zip' }; Check 'zip' ((Json $r).success) $r.Text
     $r = Http @("$base/fileapi?action=download&paths=%5B%22$d%2Fhello.txt%22%2C%22$d%2Fupload.bin%22%5D")
     $isZip = $r.Bytes.Length -gt 4 -and $r.Bytes[0] -eq 0x50 -and $r.Bytes[1] -eq 0x4B
-    Check 'multi-file download builds a zip (WriteFile + Flush)' ($r.Status -eq 200 -and $isZip -and (Header $r 'Content-Type') -eq 'application/zip') "$($r.Status) $($r.Bytes.Length)"
+    Check 'multi-file download builds a zip (TransmitFile + Flush)' ($r.Status -eq 200 -and $isZip -and (Header $r 'Content-Type') -eq 'application/zip') "$($r.Status) $($r.Bytes.Length)"
 
     $r = Api '/fileapi' 'rename' @{ path = "$d/hello.txt"; name = 'renamed.txt' }; Check 'rename' ((Json $r).success) $r.Text
     $r = Http @("$base/fileapi?action=read&path=$d/hello.txt"); Check 'old name gone (400 json error)' ($r.Status -eq 400 -and (Json $r).success -eq $false) "$($r.Status)"
