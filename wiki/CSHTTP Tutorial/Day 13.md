@@ -158,13 +158,7 @@ In Day 12, `HandleEntriesApi` needed a `for` loop, comma logic, and `JavaScriptS
 ```csharp
 static void HandleEntriesApi()
 {
-    string json;
-
-    lock (guestbookLock)
-    {
-        json = JsonConvert.SerializeObject(guestbookEntries);
-    }
-
+    string json = JsonConvert.SerializeObject(guestbookEntries);
     Response.ContentType = "application/json";
     Response.Write(json);
 }
@@ -303,11 +297,9 @@ static class Program
 {
     static List<GuestbookEntry> guestbookEntries = new List<GuestbookEntry>();
     static string dataFile = WebApp.MapPath("~/guestbook.txt");
-    static readonly object guestbookLock = new object();
 
-    // The shared notepad text (shared by every visitor, so it needs a lock too)
+    // The shared notepad text
     static string noteText = "Hello! This is the shared notepad.\nEdit me and click Save.";
-    static readonly object noteLock = new object();
 
     static void Main()
     {
@@ -632,10 +624,7 @@ footer {
                 text = reader.ReadToEnd();
             }
 
-            lock (noteLock)
-            {
-                noteText = text;
-            }
+            noteText = text;
 
             Console.WriteLine("Note saved (" + text.Length + " characters)");
             Console.WriteLine("Request.Form has " + Request.Form.Count + " fields (the body is not a form!)");
@@ -646,14 +635,8 @@ footer {
         }
 
         // GET: send the current note as plain text
-        string current;
-        lock (noteLock)
-        {
-            current = noteText;
-        }
-
         Response.ContentType = "text/plain";
-        Response.Write(current);
+        Response.Write(noteText);
     }
 
     // The notepad page. JavaScript talks to /api/note without reloading the page.
@@ -740,13 +723,7 @@ footer {
     // NEW IN DAY 13: The whole list -> JSON in ONE line. No loop, no commas, no escaping by hand!
     static void HandleEntriesApi()
     {
-        string json;
-
-        lock (guestbookLock)
-        {
-            json = JsonConvert.SerializeObject(guestbookEntries);
-        }
-
+        string json = JsonConvert.SerializeObject(guestbookEntries);
         Response.ContentType = "application/json";
         Response.Write(json);
     }
@@ -821,11 +798,8 @@ footer {
                     Time = DateTime.Now
                 };
 
-                lock (guestbookLock)
-                {
-                    guestbookEntries.Add(entry);
-                    SaveEntry(entry);
-                }
+                guestbookEntries.Add(entry);
+                SaveEntry(entry);
 
                // Remember the visitor's name for 30 days
                 HttpCookie nameCookie = new HttpCookie("guest_name", HttpUtility.UrlEncode(entry.Name));
@@ -848,28 +822,21 @@ footer {
         }
 
         StringBuilder listHtml = new StringBuilder();
-        int count;
-
-        lock (guestbookLock)
+        listHtml.Append("<ul>");
+        foreach (GuestbookEntry entry in guestbookEntries)
         {
-            count = guestbookEntries.Count;
+            string safeName = HttpUtility.HtmlEncode(entry.Name);
+            string safeMessage = HttpUtility.HtmlEncode(entry.Message);
+            string time = entry.Time.ToString("yyyy-MM-dd HH:mm");
 
-            listHtml.Append("<ul>");
-            foreach (GuestbookEntry entry in guestbookEntries)
-            {
-                string safeName = HttpUtility.HtmlEncode(entry.Name);
-                string safeMessage = HttpUtility.HtmlEncode(entry.Message);
-                string time = entry.Time.ToString("yyyy-MM-dd HH:mm");
-
-                listHtml.Append($@"
-                    <li style=""margin-bottom: 8px;"">
-                        <b>{safeName}</b>
-                        <small style=""color: gray;"">({time})</small><br />
-                        {safeMessage}
-                    </li>");
-            }
-            listHtml.Append("</ul>");
+            listHtml.Append($@"
+                <li style=""margin-bottom: 8px;"">
+                    <b>{safeName}</b>
+                    <small style=""color: gray;"">({time})</small><br />
+                    {safeMessage}
+                </li>");
         }
+        listHtml.Append("</ul>");
 
         string content = $@"
             <h1>Community Guestbook</h1>

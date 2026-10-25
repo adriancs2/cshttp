@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <!--
     Zero-dependency test harness. Runs every test on both runtimes:
       dotnet run -f net10.0
@@ -13,7 +13,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\cshttp\cshttp.csproj" />
-    <ProjectReference Include="..\..\src\cshttp.web\cshttp.web.csproj" />
-    <ProjectReference Include="..\..\src\cshttp.server\cshttp.server.csproj" />
   </ItemGroup>
 </Project>

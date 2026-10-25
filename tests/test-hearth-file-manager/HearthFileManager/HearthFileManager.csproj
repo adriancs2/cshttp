@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <!--
     HearthFileManager running on cshttp instead of ASP.NET + IIS.
     Was: .NET Framework 4.8 web application (DLL loaded by IIS).
@@ -12,19 +12,14 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
-
   <ItemGroup>
     <!-- website data is runtime content, never compiled -->
     <Compile Remove="App_Data\**" />
     <None Remove="App_Data\**" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\cshttp\cshttp.csproj" />
-    <ProjectReference Include="..\..\..\src\cshttp.web\cshttp.web.csproj" />
-    <ProjectReference Include="..\..\..\src\cshttp.server\cshttp.server.csproj" />
   </ItemGroup>
-
   <!-- The application's own dependencies (unchanged from the IIS version), from the local packages folder. -->
   <ItemGroup>
     <Reference Include="Newtonsoft.Json">
@@ -38,6 +33,5 @@
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
-  <Import Project="..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets"
-          Condition="Exists('..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" />
+  <Import Project="..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets" Condition="Exists('..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119.0\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" />
 </Project>

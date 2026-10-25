@@ -54,7 +54,7 @@ namespace HearthFileManager.engine.Ai
             Tasks[task.Id] = task;
             agent.OnProgress = task.Add;
 
-            HostingEnvironment.QueueBackgroundWorkItem(ct =>
+            WebApp.BackgroundWork(ct =>
             {
                 try
                 {

@@ -9,7 +9,7 @@ Congratulations! You have learned a lot in 13 days:
 | 5 | Storing data in a server-side `List` and the Post-Redirect-Get pattern |
 | 6 | Keeping your site safe with `HttpUtility.HtmlEncode` |
 | 7 | Designing your own `class` |
-| 8 | Saving to a file, and protecting shared data with `lock` |
+| 8 | Saving to a file |
 | 9 | Content types: CSS, pictures, plain text |
 | 10 | Cookies |
 | 11–12 | `fetch`, plain text, and JSON |
@@ -29,8 +29,7 @@ Try to build it on your own first. Look back at earlier days when you get stuck.
 4. Each task has a **Delete** button.
 5. Tasks are **saved to a file**, so they survive a server restart.
 6. It must be **safe**: typing `<script>` as a task must not run any code.
-7. It must be **correct with many visitors**: protect the shared list with `lock`.
-8. It should look nice, using a `/style.css` route.
+7. It should look nice, using a `/style.css` route.
 
 ---
 
@@ -88,13 +87,7 @@ Because tasks can change or be deleted, it is easiest to **rewrite the whole fil
 
 *Hint: Day 8, Part 1. `bool.Parse("True")` turns text back into a `bool`.*
 
-### Step 6: Add `lock`
-
-Put **every** use of the list (show, add, toggle, delete, save) inside `lock (todoLock) { ... }`.
-
-*Hint: Day 8, Part 2. Keep `Response.Redirect` and `RenderPage` **outside** the lock.*
-
-### Step 7: Make it pretty
+### Step 6: Make it pretty
 
 Add a `/style.css` route with `Response.ContentType = "text/css"` and link it from your template.
 
@@ -150,7 +143,6 @@ static class Program
     static List<TodoItem> todoItems = new List<TodoItem>();
     static int nextId = 1;
     static string dataFile = WebApp.MapPath("~/todo.txt");
-    static readonly object todoLock = new object();
 
     static void Main()
     {
@@ -194,7 +186,6 @@ static class Program
         }
     }
 
-    // Always called INSIDE lock (todoLock)
     static void SaveTodos()
     {
         List<string> lines = new List<string>();
@@ -258,37 +249,32 @@ static class Program
     static void HandleList()
     {
         StringBuilder listHtml = new StringBuilder();
-        int total;
+        int total = todoItems.Count;
         int doneCount = 0;
 
-        lock (todoLock)
+        foreach (TodoItem item in todoItems)
         {
-            total = todoItems.Count;
+            string safeText = HttpUtility.HtmlEncode(item.Text);
+            string cssClass = item.Done ? "done" : "";
+            string toggleLabel = item.Done ? "Undo" : "Done";
 
-            foreach (TodoItem item in todoItems)
+            if (item.Done)
             {
-                string safeText = HttpUtility.HtmlEncode(item.Text);
-                string cssClass = item.Done ? "done" : "";
-                string toggleLabel = item.Done ? "Undo" : "Done";
-
-                if (item.Done)
-                {
-                    doneCount++;
-                }
-
-                listHtml.Append($@"
-                <li>
-                    <span class=""{cssClass}"">{safeText}</span>
-                    <form action=""/toggle"" method=""post"">
-                        <input type=""hidden"" name=""id"" value=""{item.Id}"" />
-                        <button type=""submit"">{toggleLabel}</button>
-                    </form>
-                    <form action=""/delete"" method=""post"">
-                        <input type=""hidden"" name=""id"" value=""{item.Id}"" />
-                        <button type=""submit"" class=""delete"">Delete</button>
-                    </form>
-                </li>");
+                doneCount++;
             }
+
+            listHtml.Append($@"
+            <li>
+                <span class=""{cssClass}"">{safeText}</span>
+                <form action=""/toggle"" method=""post"">
+                    <input type=""hidden"" name=""id"" value=""{item.Id}"" />
+                    <button type=""submit"">{toggleLabel}</button>
+                </form>
+                <form action=""/delete"" method=""post"">
+                    <input type=""hidden"" name=""id"" value=""{item.Id}"" />
+                    <button type=""submit"" class=""delete"">Delete</button>
+                </form>
+            </li>");
         }
 
         if (total == 0)
@@ -323,13 +309,10 @@ static class Program
                 // Keep it on one line, so it fits in one line of our file
                 text = text.Replace("\r", " ").Replace("\n", " ").Trim();
 
-                lock (todoLock)
-                {
-                    TodoItem item = new TodoItem { Id = nextId, Text = text, Done = false };
-                    nextId++;
-                    todoItems.Add(item);
-                    SaveTodos();
-                }
+                TodoItem item = new TodoItem { Id = nextId, Text = text, Done = false };
+                nextId++;
+                todoItems.Add(item);
+                SaveTodos();
             }
         }
 
@@ -341,18 +324,15 @@ static class Program
         int id;
         if (Request.HttpMethod == "POST" && int.TryParse(Request.Form["id"], out id))
         {
-            lock (todoLock)
+            foreach (TodoItem item in todoItems)
             {
-                foreach (TodoItem item in todoItems)
+                if (item.Id == id)
                 {
-                    if (item.Id == id)
-                    {
-                        item.Done = !item.Done;
-                        break;
-                    }
+                    item.Done = !item.Done;
+                    break;
                 }
-                SaveTodos();
             }
+            SaveTodos();
         }
 
         Response.Redirect("/");
@@ -363,11 +343,8 @@ static class Program
         int id;
         if (Request.HttpMethod == "POST" && int.TryParse(Request.Form["id"], out id))
         {
-            lock (todoLock)
-            {
-                todoItems.RemoveAll(t => t.Id == id);
-                SaveTodos();
-            }
+            todoItems.RemoveAll(t => t.Id == id);
+            SaveTodos();
         }
 
         Response.Redirect("/");
@@ -446,7 +423,6 @@ li form {
 ## Things to Notice in the Solution
 
 - **`int.TryParse` instead of `int.Parse`:** If someone sends a broken id (like `abc`), `int.Parse` would crash with an error. `int.TryParse` simply returns `false`, and we ignore the request. Never trust input — even hidden fields can be changed by the visitor!
-- **`SaveTodos()` is called inside the `lock`:** Saving reads the whole list, so nobody may change it while we write the file.
 - **Every action ends with `Response.Redirect("/")`:** That's the Post-Redirect-Get pattern from Day 5. Refreshing the page never repeats an action.
 - **`HtmlEncode` on `item.Text`, but not on `item.Id`:** The Id is an `int` that *we* created, so it can only ever be digits.
 
@@ -461,6 +437,6 @@ From here, you can explore:
 - **Databases** (like SQLite or MySQL) instead of text files, for bigger apps.
 - **User accounts and logins**, with passwords stored safely (hashed).
 - **Serving real files** like photos and downloads.
-- **A JSON library**, so you don't have to build JSON by hand.
+- **Concurrency & `lock`**, to protect data when thousands of visitors arrive at once.
 
-Every one of them uses the same building blocks you already know: `Request`, `Response`, `switch`, classes, `lock`, and encoding user input. Well done!
+Every one of them uses the same building blocks you already know: `Request`, `Response`, `switch`, classes, and encoding user input. Well done!

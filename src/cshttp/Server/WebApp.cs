@@ -183,6 +183,18 @@ namespace cshttp
             new HttpServer(options).Run(ctx => handler());
         }
 
+        /// <summary>Queues a background work item that is safely tracked for graceful server shutdown.</summary>
+        public static void BackgroundWork(Action<System.Threading.CancellationToken> workItem)
+        {
+            HostingEnvironment.QueueBackgroundWork(workItem);
+        }
+
+        /// <summary>Queues an async background work item that is safely tracked for graceful server shutdown.</summary>
+        public static void BackgroundWork(Func<System.Threading.CancellationToken, System.Threading.Tasks.Task> workItem)
+        {
+            HostingEnvironment.QueueBackgroundWork(workItem);
+        }
+
         static void ValidatePort(int port)
         {
             if (port < 0 || port > 65535)
@@ -231,6 +243,8 @@ namespace cshttp
         public static int TotalBytes { get { return Current.TotalBytes; } }
         public static Encoding ContentEncoding { get { return Current.ContentEncoding; } set { Current.ContentEncoding = value; } }
         public static Stream InputStream { get { return Current.InputStream; } }
+        public static byte[] BodyBytes { get { return Current.BodyBytes; } }
+        public static string BodyText { get { return Current.BodyText; } }
         public static byte[] BinaryRead(int count) { return Current.BinaryRead(count); }
         public static bool IsSecureConnection { get { return Current.IsSecureConnection; } }
         public static string UserHostAddress { get { return Current.UserHostAddress; } }
@@ -303,5 +317,7 @@ namespace cshttp
         public static void RedirectPermanent(string url, bool endResponse) { Current.RedirectPermanent(url, endResponse); }
         public static void Reset() { Current.Reset(); }
         public static void CompleteRequest() { HttpContext.Current.ApplicationInstance.CompleteRequest(); }
+
+
     }
 }

@@ -27,6 +27,8 @@ namespace cshttp
         HttpFileCollection _files;
         HttpCookieCollection _cookies;
         Stream _inputStream;
+        byte[] _bodyBytes;
+        string _bodyText;
         Encoding _contentEncoding;
         UnvalidatedRequestValues _unvalidated;
         HttpException _bodyError;
@@ -279,6 +281,41 @@ namespace cshttp
         public Stream InputStream
         {
             get { return _inputStream ?? (_inputStream = new MemoryStream(_body, _bodyOffset, _bodyLength, false, true)); }
+        }
+
+        /// <summary>The raw request body as a byte array. Cached per request.</summary>
+        public byte[] BodyBytes
+        {
+            get
+            {
+                if (_bodyBytes == null)
+                {
+                    if (_bodyLength == 0)
+                    {
+                        _bodyBytes = EmptyBody;
+                    }
+                    else
+                    {
+                        byte[] copy = new byte[_bodyLength];
+                        Buffer.BlockCopy(_body, _bodyOffset, copy, 0, _bodyLength);
+                        _bodyBytes = copy;
+                    }
+                }
+                return _bodyBytes;
+            }
+        }
+
+        /// <summary>The raw request body decoded as text using ContentEncoding (defaults to UTF-8). Cached per request.</summary>
+        public string BodyText
+        {
+            get
+            {
+                if (_bodyText == null)
+                {
+                    _bodyText = _bodyLength == 0 ? string.Empty : ContentEncoding.GetString(_body, _bodyOffset, _bodyLength);
+                }
+                return _bodyText;
+            }
         }
 
         public byte[] BinaryRead(int count)

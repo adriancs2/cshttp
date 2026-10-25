@@ -1,6 +1,6 @@
 ﻿# Tier 2 Deep Dive: `cshttp.web` — Content Toolkit & `System.Web` Drop-In
 
-> **Source Folder:** [`src/cshttp.web/`](../src/cshttp.web/)  
+> **Source Folder:** [`src/cshttp/Web/`](../src/cshttp/Web/)  
 > **Namespace:** `cshttp`  
 > **Dependencies:** References only [`cshttp`](./1-cshttp-Wire-Engine.md) (Zero external NuGet packages, C# 7.3, `.NET Framework 4.8` and `.NET 8 / 10+`)
 
@@ -18,21 +18,21 @@ Because `cshttp.web` writes responses through a 3-method interface (`IHttpRespon
 
 ---
 
-## 2. File Inventory (`src/cshttp.web/` — 11 Files)
+## 2. File Inventory (`src/cshttp/Web/` — 11 Files)
 
 | File | Public Types | Role |
 | :--- | :--- | :--- |
-| **[HttpContext.cs](../src/cshttp.web/HttpContext.cs)** | `HttpContext`, `HttpApplication`, `HttpServerUtility` | Ambient `HttpContext.Current` (`AsyncLocal<HttpContext>`), per-request `Items`, `Server.MapPath`, and `CompleteRequest()`. |
-| **[HttpRequest.cs](../src/cshttp.web/HttpRequest.cs)** | `HttpRequest`, `UnvalidatedRequestValues` | Lazy-parsed `Path`, `QueryString`, `Form`, `Files`, `Cookies`, `Headers`, `ServerVariables`, `Params`, and unified `Request["key"]` indexer. |
-| **[HttpResponse.cs](../src/cshttp.web/HttpResponse.cs)** | `HttpResponse`, `IHttpResponseSink` | Buffered (`Content-Length`) or streaming (`Transfer-Encoding: chunked` via `Flush()` / `BufferOutput = false`) response writer and `TransmitFile`, which streams files from disk in 64 KB chunks at send time (never loading the whole file into memory). |
-| **[CookiesAndFiles.cs](../src/cshttp.web/CookiesAndFiles.cs)** | `HttpCookie`, `HttpCookieCollection`, `SameSiteMode`, `HttpPostedFile`, `HttpFileCollection` | RFC 6265 cookies (with `HttpOnly`, `Secure`, `SameSite`) and zero-copy `HttpPostedFile` slices over the request body buffer. |
-| **[MultipartParser.cs](../src/cshttp.web/MultipartParser.cs)** | `MultipartParser` | RFC 7578 `multipart/form-data` parser supporting multiple file uploads, RFC 8187 `filename*` UTF-8 decoding, and part-count limits. |
-| **[UrlEncoding.cs](../src/cshttp.web/UrlEncoding.cs)** | `PercentDecoder`, `UrlEncodedParser` | Single-pass percent-decoder and `application/x-www-form-urlencoded` parser (operates directly on `byte[]` or `string`). |
-| **[HttpUtility.cs](../src/cshttp.web/HttpUtility.cs)** | `HttpUtility` | `HtmlEncode`, `HtmlAttributeEncode`, `HtmlDecode`, `UrlEncode`, `UrlPathEncode`, `UrlDecode`, `ParseQueryString`, and `JavaScriptStringEncode`. |
-| **[HttpCachePolicy.cs](../src/cshttp.web/HttpCachePolicy.cs)** | `HttpCachePolicy`, `HttpCacheability` | `Response.Cache` builder (`SetCacheability`, `SetMaxAge`, `SetNoStore`, `SetETag`, `SetLastModified`). |
-| **[StaticFiles.cs](../src/cshttp.web/StaticFiles.cs)** | `StaticFiles`, `StaticFileOptions`, `MimeTypes` | Production static file server with `ETag`, `Last-Modified`, `304 Not Modified`, `206 Partial Content` byte ranges, `?v=` immutable cache-busting, and strict path-traversal guards. |
-| **[HostingEnvironment.cs](../src/cshttp.web/HostingEnvironment.cs)** | `HostingEnvironment` | `ApplicationPhysicalPath`, `MapPath("~/...")` with root-escape protection, and graceful `QueueBackgroundWorkItem` tracking. |
-| **[Common.cs](../src/cshttp.web/Common.cs)** | `HttpException`, `HttpResponseEndException`, `RequestSettings`, `RequestConnectionInfo`, `HttpValueCollection`, `HeaderValue` | Status-code exceptions, body-parsing limits (`MaxCollectionKeys = 1000`), and proxy-aware connection metadata. |
+| **[HttpContext.cs](../src/cshttp/Web/HttpContext.cs)** | `HttpContext`, `HttpApplication`, `HttpServerUtility` | Ambient `HttpContext.Current` (`AsyncLocal<HttpContext>`), per-request `Items`, `Server.MapPath`, and `CompleteRequest()`. |
+| **[HttpRequest.cs](../src/cshttp/Web/HttpRequest.cs)** | `HttpRequest`, `UnvalidatedRequestValues` | Lazy-parsed `Path`, `QueryString`, `Form`, `Files`, `Cookies`, `Headers`, `BodyText`, `BodyBytes`, `InputStream`, `ServerVariables`, `Params`, and unified `Request["key"]` indexer. |
+| **[HttpResponse.cs](../src/cshttp/Web/HttpResponse.cs)** | `HttpResponse`, `IHttpResponseSink` | Buffered (`Content-Length`) or streaming (`Transfer-Encoding: chunked` via `Flush()` / `BufferOutput = false`) response writer and `TransmitFile`, which streams files from disk in 64 KB chunks at send time (never loading the whole file into memory). |
+| **[CookiesAndFiles.cs](../src/cshttp/Web/CookiesAndFiles.cs)** | `HttpCookie`, `HttpCookieCollection`, `SameSiteMode`, `HttpPostedFile`, `HttpFileCollection` | RFC 6265 cookies (with `HttpOnly`, `Secure`, `SameSite`) and zero-copy `HttpPostedFile` slices over the request body buffer. |
+| **[MultipartParser.cs](../src/cshttp/Web/MultipartParser.cs)** | `MultipartParser` | RFC 7578 `multipart/form-data` parser supporting multiple file uploads, RFC 8187 `filename*` UTF-8 decoding, and part-count limits. |
+| **[UrlEncoding.cs](../src/cshttp/Web/UrlEncoding.cs)** | `PercentDecoder`, `UrlEncodedParser` | Single-pass percent-decoder and `application/x-www-form-urlencoded` parser (operates directly on `byte[]` or `string`). |
+| **[HttpUtility.cs](../src/cshttp/Web/HttpUtility.cs)** | `HttpUtility` | `HtmlEncode`, `HtmlAttributeEncode`, `HtmlDecode`, `UrlEncode`, `UrlPathEncode`, `UrlDecode`, `ParseQueryString`, and `JavaScriptStringEncode`. |
+| **[HttpCachePolicy.cs](../src/cshttp/Web/HttpCachePolicy.cs)** | `HttpCachePolicy`, `HttpCacheability` | `Response.Cache` builder (`SetCacheability`, `SetMaxAge`, `SetNoStore`, `SetETag`, `SetLastModified`). |
+| **[StaticFiles.cs](../src/cshttp/Web/StaticFiles.cs)** | `StaticFiles`, `StaticFileOptions`, `MimeTypes` | Production static file server with `ETag`, `Last-Modified`, `304 Not Modified`, `206 Partial Content` byte ranges, `?v=` immutable cache-busting, and strict path-traversal guards. |
+| **[HostingEnvironment.cs](../src/cshttp/Web/HostingEnvironment.cs)** | `HostingEnvironment` | `ApplicationPhysicalPath`, `MapPath("~/...")` with root-escape protection, and graceful background work tracking (accessible via `WebApp.BackgroundWork`). |
+| **[Common.cs](../src/cshttp/Web/Common.cs)** | `HttpException`, `HttpResponseEndException`, `RequestSettings`, `RequestConnectionInfo`, `HttpValueCollection`, `HeaderValue` | Status-code exceptions, body-parsing limits (`MaxCollectionKeys = 1000`), and proxy-aware connection metadata. |
 
 ---
 
@@ -65,7 +65,12 @@ if (upload != null && upload.ContentLength > 0)
     // Or read directly from upload.InputStream without copying the underlying byte[] buffer!
 }
 
-// 5. Client IP & Proxy Resolution (populated after TrustedProxies validation)
+// 5. Raw Request Body (Lazy-decoded text, cached bytes, or zero-copy stream)
+string payload = Request.BodyText;    // Decoded once using ContentEncoding (UTF-8 default)
+byte[] bytes   = Request.BodyBytes;   // Cached raw byte array
+Stream stream  = Request.InputStream; // Zero-copy MemoryStream directly over the receive buffer
+
+// 6. Client IP & Proxy Resolution (populated after TrustedProxies validation)
 string clientIp = Request.UserHostAddress;
 bool isHttps    = Request.IsSecureConnection;
 bool isLocal    = Request.IsLocal;

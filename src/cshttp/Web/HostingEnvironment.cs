@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -81,7 +81,7 @@ namespace cshttp
             return full;
         }
 
-        public static void QueueBackgroundWorkItem(Action<CancellationToken> workItem)
+        internal static void QueueBackgroundWork(Action<CancellationToken> workItem)
         {
             if (workItem == null) throw new ArgumentNullException("workItem");
             CancellationToken token;
@@ -95,7 +95,7 @@ namespace cshttp
             });
         }
 
-        public static void QueueBackgroundWorkItem(Func<CancellationToken, Task> workItem)
+        internal static void QueueBackgroundWork(Func<CancellationToken, Task> workItem)
         {
             if (workItem == null) throw new ArgumentNullException("workItem");
             CancellationToken token;

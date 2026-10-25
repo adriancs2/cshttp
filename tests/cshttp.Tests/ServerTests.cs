@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -155,7 +155,7 @@ namespace cshttp.Tests
                     Response.Write("slow");
                     return;
                 case "/bg":
-                    HostingEnvironment.QueueBackgroundWorkItem(ct => Interlocked.Increment(ref BackgroundCount));
+                    WebApp.BackgroundWork(ct => Interlocked.Increment(ref BackgroundCount));
                     Response.Write("queued");
                     return;
                 case "/notmodified":

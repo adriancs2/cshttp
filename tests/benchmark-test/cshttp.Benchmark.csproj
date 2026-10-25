@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <!--
     Official Architecture Stress & Concurrency Benchmark for cshttp.server 1.0.
     Compares:
@@ -19,7 +19,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\cshttp\cshttp.csproj" />
-    <ProjectReference Include="..\..\src\cshttp.web\cshttp.web.csproj" />
-    <ProjectReference Include="..\..\src\cshttp.server\cshttp.server.csproj" />
   </ItemGroup>
 </Project>

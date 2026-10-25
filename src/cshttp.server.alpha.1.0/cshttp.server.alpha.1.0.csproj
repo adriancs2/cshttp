@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <!-- cshttp.server.alpha.1.0: Original alpha 1.0 TCP listener (1 OS thread per connection with blocking I/O). -->
   <PropertyGroup>
     <TargetFrameworks>net48;net8.0</TargetFrameworks>
@@ -6,6 +6,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\cshttp\cshttp.csproj" />
-    <ProjectReference Include="..\cshttp.web\cshttp.web.csproj" />
   </ItemGroup>
 </Project>

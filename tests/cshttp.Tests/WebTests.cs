@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Specialized;
 using System.IO;
 using System.Text;
@@ -289,6 +289,9 @@ namespace cshttp.Tests
                 var r = MakeRequest("POST /x HTTP/1.1\r\nHost: h\r\nContent-Type: application/json\r\nContent-Length: 7\r\n\r\n", body);
                 A.Eq(0, r.Form.Count);
                 A.Eq(0, r.Files.Count);
+                A.Eq("{\"a\":1}", r.BodyText);
+                A.Eq(body.Length, r.BodyBytes.Length);
+                A.Eq("{\"a\":1}", Encoding.UTF8.GetString(r.BodyBytes));
             });
 
             t.Add("request: malformed multipart throws 400 on every access", () =>
@@ -594,13 +597,13 @@ namespace cshttp.Tests
                 HostingEnvironment.BeginHosting(null);
                 int done = 0;
                 var started = new ManualResetEventSlim();
-                HostingEnvironment.QueueBackgroundWorkItem(ct => { started.Set(); Thread.Sleep(200); Interlocked.Increment(ref done); });
-                HostingEnvironment.QueueBackgroundWorkItem(async ct => { await System.Threading.Tasks.Task.Delay(50); Interlocked.Increment(ref done); });
-                HostingEnvironment.QueueBackgroundWorkItem(ct => { throw new InvalidOperationException("reported, not crashing"); });
+                WebApp.BackgroundWork(ct => { started.Set(); Thread.Sleep(200); Interlocked.Increment(ref done); });
+                WebApp.BackgroundWork(async ct => { await System.Threading.Tasks.Task.Delay(50); Interlocked.Increment(ref done); });
+                WebApp.BackgroundWork(ct => { throw new InvalidOperationException("reported, not crashing"); });
                 started.Wait(2000);
                 A.True(HostingEnvironment.InitiateShutdown(TimeSpan.FromSeconds(5)), "all finished");
                 A.Eq(2, done);
-                HostingEnvironment.QueueBackgroundWorkItem(ct => Interlocked.Increment(ref done));
+                WebApp.BackgroundWork(ct => Interlocked.Increment(ref done));
                 Thread.Sleep(50);
                 A.Eq(2, done, "ignored after shutdown");
                 HostingEnvironment.BeginHosting(null);
