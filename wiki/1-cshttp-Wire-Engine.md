@@ -8,7 +8,12 @@
 
 ## 1. Overview & Architecture
 
-`cshttp.core` is the foundational tier of `cshttp`: a strict, resumable, byte-level **HTTP/1.1 wire parser, chunked transfer decoder, and response serializer** built directly against **RFC 9112**, **RFC 9110**, **RFC 3986**, and **RFC 7578**.
+`cshttp.core` is the foundational tier of `cshttp`: a strict, resumable, byte-level **HTTP/1.1 wire parser, chunked transfer decoder, and response serializer** built directly against authoritative internet standards:
+* [RFC 9112 — HTTP/1.1](https://www.rfc-editor.org/rfc/rfc9112)
+* [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110)
+* [RFC 3986 — Uniform Resource Identifier (URI)](https://www.rfc-editor.org/rfc/rfc3986)
+* [RFC 6265 — HTTP State Management Mechanism (Cookies)](https://www.rfc-editor.org/rfc/rfc6265)
+* [RFC 7578 — Returning Values from Forms: multipart/form-data](https://www.rfc-editor.org/rfc/rfc7578)
 
 ### Design Principles
 1. **Zero Socket / Network I/O**: The engine is purely computational. It knows nothing about sockets, listeners, SSL, or files. You pass it incoming `byte[]` chunks; it validates, inspects, and yields structured message heads and bodies.
@@ -242,7 +247,20 @@ public sealed class ParserOptions
 
 ---
 
-## 10. Summary: When to Use `cshttp.core`
+## 10. Specification & RFC Reference Links
+
+| Standard | Title & Link | Scope in `cshttp.core` |
+| :--- | :--- | :--- |
+| **RFC 9112** | [HTTP/1.1 (Message Syntax and Routing)](https://www.rfc-editor.org/rfc/rfc9112) | Start-line grammar, header field lines, chunked transfer coding, request smuggling defenses (TE+CL), and body framing rules (§6.3). |
+| **RFC 9110** | [HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110) | HTTP methods, status codes, reason phrases, character tokens (`HttpChars`), and IMF-fixdate format (`HttpDate`). |
+| **RFC 3986** | [Uniform Resource Identifier (URI): Generic Syntax](https://www.rfc-editor.org/rfc/rfc3986) | Request-target forms (Origin, Absolute, Authority, Asterisk), path and query string delimiters, percent-decoding rules. |
+| **RFC 6265** | [HTTP State Management Mechanism (Cookies)](https://www.rfc-editor.org/rfc/rfc6265) | `Cookie` and `Set-Cookie` header serialization and token constraints. |
+| **RFC 7578** | [Returning Values from Forms: multipart/form-data](https://www.rfc-editor.org/rfc/rfc7578) | Boundary syntax, multi-part headers, and form-data framing. |
+| **WHATWG URL** | [WHATWG URL Standard](https://url.spec.whatwg.org/) | Query parameter parsing, `application/x-www-form-urlencoded`, and `+` to space mapping. |
+
+---
+
+## 11. Summary: When to Use `cshttp.core`
 
 * **Use `cshttp.core` directly** if you are writing custom network infrastructure (TCP reverse proxies, TLS terminators, API gateways, network packet inspectors, or custom socket loops) and only require high-performance, specification-compliant HTTP/1.1 byte framing without web abstractions.
 * **For general web application development**, use the unified [`cshttp`](../README.md) micro web server, which bundles `cshttp.core`, the `cshttp.web` toolkit (`HttpRequest`, `HttpResponse`, `Session`, `Cookies`, `StaticFiles`), and the `HttpServer` socket listener into one complete stack.
