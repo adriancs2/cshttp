@@ -254,9 +254,12 @@ Drop the `Core/`, `Web/`, and `Server/` folders directly into your solution for 
 
 ## Documentation & Tutorials
 
-- 📚 **[15-Day Beginner Tutorial Series](wiki/CSHTTP%20Tutorial/Day%2000.md)**: A complete, step-by-step course building web apps from scratch.
-- 📐 **[Architecture & Structure Overview](wiki/0-cshttp-structure-overview.md)**: Deep dive into the internal IOCP socket listener, wire parser, and zero-allocation pipelines.
-- ⚡ **[Benchmark Report](wiki/4-Benchmark-Report.md)**: High-concurrency throughput and latency benchmarks.
+- **[15-Day Beginner Tutorial Series](wiki/CSHTTP%20Tutorial/Day%2000.md)**: A complete, step-by-step course building web apps from scratch.
+- **[Architecture & Structure Overview](wiki/0-cshttp-structure-overview.md)**: Deep dive into the internal IOCP socket listener, wire parser, and zero-allocation pipelines.
+- **[Benchmark Report](wiki/4-Benchmark-Report.md)**: High-concurrency throughput and latency benchmarks.
+- [Tier 1 Complete Reference: cshttp.core — The RFC 9112 Wire Engine](https://github.com/adriancs2/cshttp/blob/main/wiki/1-cshttp-Wire-Engine.md)
+- [Tier 2 Deep Dive: cshttp.web — Content Toolkit & System.Web Drop-In](https://github.com/adriancs2/cshttp/blob/main/wiki/2-cshttp-web-Toolkit.md)
+- [Tier 3 Deep Dive: cshttp.server 1.0 — High-Concurrency Standalone Web Server](https://github.com/adriancs2/cshttp/blob/main/wiki/3-cshttp-server-Engine.md)
 
 ---
 
