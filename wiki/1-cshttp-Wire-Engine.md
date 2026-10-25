@@ -1,57 +1,69 @@
-﻿# Tier 1 Deep Dive: `cshttp` — The Pure Wire Engine
+﻿# Tier 1 Complete Reference: `cshttp.core` — The RFC 9112 Wire Engine
 
-> **Source Folder:** [`src/cshttp/`](../src/cshttp/)  
+> **Source Location:** [`src/cshttp/Core/`](../src/cshttp/Core/)  
 > **Namespace:** `cshttp`  
-> **Dependencies:** **Zero** (Pure BCL, C# 7.3, compiles on `.NET Framework 4.8` and `.NET 8 / 10+`)
+> **Compilation:** Pure C# 7.3, zero external dependencies, compiles on `.NET Framework 4.8` and `.NET 8 / 10+`.
 
 ---
 
-## 1. Overview & Design Philosophy
+## 1. Overview & Architecture
 
-**`cshttp`** is the lowest tier of the stack: a strict, resumable, byte-level **HTTP/1.1 wire parser, chunked transfer decoder, and response head serializer** built against **RFC 9112** and **RFC 9110**.
+`cshttp.core` is the foundational tier of `cshttp`: a strict, resumable, byte-level **HTTP/1.1 wire parser, chunked transfer decoder, and response serializer** built directly against **RFC 9112**, **RFC 9110**, **RFC 3986**, and **RFC 7578**.
 
-It performs **zero network I/O**, knows nothing about sockets or streams (except a convenience chunk helper), and uses **zero regular expressions** on untrusted input (making it 100% immune to ReDoS attacks).
-
-Use `cshttp` on its own whenever you already own the byte buffer—such as inside a custom TCP/TLS proxy, packet analyzer, load balancer, embedded socket loop, or unit test harness—and want to turn `byte[]` slices into structured HTTP headers and back without allocating until a complete message head has arrived.
+### Design Principles
+1. **Zero Socket / Network I/O**: The engine is purely computational. It knows nothing about sockets, listeners, SSL, or files. You pass it incoming `byte[]` chunks; it validates, inspects, and yields structured message heads and bodies.
+2. **Resumable & Allocation-Free on Incomplete Data**: Unlike naive parsers that call `StreamReader.ReadLine()` or allocate strings on partial TCP packets, `HttpRequestParser.ParseHead` scans strictly for delimiter bounds. Until the terminating double CRLF (`\r\n\r\n`) arrives, it allocates **zero objects on the managed heap** and returns `HttpParseStatus.NeedMoreData`.
+3. **Zero Regular Expressions (ReDoS Immune)**: Untrusted client byte streams are validated with RFC character-class lookup tables (`HttpChars`), completely eliminating Regular Expression Denial of Service (ReDoS) vectors.
+4. **Active Request-Smuggling Defense**: Enforces RFC 9112 §6.3, rejecting TE+CL conflicts, duplicate/differing `Content-Length` headers, bare CR injection, and obsolete line folding (`obs-fold`).
 
 ---
 
-## 2. File Inventory (`src/cshttp/` — 7 Files)
+## 2. File Inventory (`src/cshttp/Core/` — 7 Source Files)
 
-| File | Public Types | Role |
+| Source File | Public Types | Architectural Role |
 | :--- | :--- | :--- |
-| **[HttpRequestParser.cs](../src/cshttp/HttpRequestParser.cs)** | `HttpRequestParser` | Strict, resumable HTTP/1.x request-head parser (`ParseHead`) and comma-list splitter (`SplitList`). |
-| **[HttpRequestHead.cs](../src/cshttp/HttpRequestHead.cs)** | `HttpRequestHead`, `HttpParseResult`, `HttpParseStatus`, `HttpBodyKind`, `RequestTargetForm` | Parsed request-line, headers, body framing decision (`None`, `ContentLength`, `Chunked`), keep-alive flag, and `100-continue` expectation. |
-| **[HttpHeaders.cs](../src/cshttp/HttpHeaders.cs)** | `HttpHeaders`, `HttpHeader`, `KnownHeaders` | Wire-order-preserving header list with case-insensitive lookup and zero-allocation canonical name interning (`KnownHeaders.Find`). |
-| **[ChunkedDecoder.cs](../src/cshttp/ChunkedDecoder.cs)** | `ChunkedDecoder`, `ChunkedStatus` | Incremental, zero-copy state machine for `Transfer-Encoding: chunked` (RFC 9112 §7.1). |
-| **[HttpResponseWriter.cs](../src/cshttp/HttpResponseWriter.cs)** | `HttpResponseWriter`, `HttpStatus`, `HttpDate` | Serializes response status lines and headers (`BuildHead`) with CR/LF injection protection, chunk framing (`WriteChunkHeader`), and IMF-fixdate formatting. |
-| **[HttpChars.cs](../src/cshttp/HttpChars.cs)** | `HttpChars`, `ParserOptions` | RFC 9110/9112 byte character-class lookup tables (`IsToken`, `IsFieldValueByte`, `IsSafeFieldValue`) and parser size/strictness limits. |
-| **[ByteScan.cs](../src/cshttp/ByteScan.cs)** | `ByteScan` | Runtime-adaptive byte scanning: uses SIMD vectorized `ReadOnlySpan<byte>.IndexOf` on `.NET 8+` and `Array.IndexOf` on `.NET Framework 4.8` without requiring `System.Memory`. |
+| **`HttpRequestParser.cs`** | `HttpRequestParser` | Strict, resumable HTTP/1.x request-head parser (`ParseHead`) and RFC comma-list splitter (`SplitList`). |
+| **`HttpRequestHead.cs`** | `HttpRequestHead`<br>`HttpParseResult`<br>`HttpParseStatus`<br>`HttpBodyKind`<br>`RequestTargetForm` | Parsed request-line, headers, body framing resolution (`None`, `ContentLength`, `Chunked`), keep-alive decision, and `100-continue` flag. |
+| **`HttpHeaders.cs`** | `HttpHeaders`<br>`HttpHeader`<br>`KnownHeaders` | Wire-order-preserving header list with case-insensitive lookup and zero-allocation canonical name interning (`KnownHeaders.Find`). |
+| **`ChunkedDecoder.cs`** | `ChunkedDecoder`<br>`ChunkedStatus` | Incremental, zero-copy finite state machine for `Transfer-Encoding: chunked` (RFC 9112 §7.1). |
+| **`HttpResponseWriter.cs`** | `HttpResponseWriter`<br>`HttpStatus`<br>`HttpDate` | Serializes HTTP/1.1 response status lines, headers, chunk framing, and IMF-fixdate formatting with CRLF injection protection. |
+| **`HttpChars.cs`** | `HttpChars`<br>`ParserOptions` | RFC 9110/9112 byte character-class lookup tables (`IsToken`, `IsFieldValueByte`, `IsSafeFieldValue`) and parser safety limits. |
+| **`ByteScan.cs`** | `ByteScan` | SIMD vectorized scanning: uses `ReadOnlySpan<byte>.IndexOf` on modern `.NET 8+` and fast loops on `.NET Framework 4.8` without external packages. |
 
 ---
 
 ## 3. Resumable Request-Head Parsing (`HttpRequestParser.ParseHead`)
 
-Unlike naive parsers that block on `StreamReader.ReadLine()` or allocate strings on partial packets, `HttpRequestParser.ParseHead` is **resumable and allocation-free on incomplete data**:
+The primary entry point for parsing HTTP wire traffic is `HttpRequestParser.ParseHead`:
 
-* You pass the accumulated buffer (`buffer`, `offset`, `count`) from the same start offset each time new bytes arrive from the socket.
-* Until the blank line (`\r\n\r\n`) terminating the HTTP head is present, `ParseHead` scans only for linefeeds and limits, allocates **nothing on the managed heap**, and returns `HttpParseStatus.NeedMoreData`.
-* Once the blank line arrives, it validates the request-line, headers, and RFC 9112 framing rules in a single pass and returns `HttpParseStatus.Complete` along with `Consumed` (the exact byte offset where the request body—or the next pipelined request—begins).
-* If the client violates RFC 9112, `ParseHead` immediately returns `HttpParseStatus.Error` with the exact HTTP status code (`400`, `414`, `417`, `431`, `501`, `505`) the server should reply with before closing the socket.
+```csharp
+public static HttpParseResult ParseHead(
+    byte[] buffer,
+    int offset,
+    int count,
+    ParserOptions options,
+    out HttpRequestHead head)
+```
 
-### Code Example: Parsing a Request Head from a Socket Buffer
+### Execution Flow
+1. **Accumulate**: You pass the slice of your buffer (`buffer, offset, count`) representing bytes received from the network so far.
+2. **Scan**: `ParseHead` verifies if the header terminator `\r\n\r\n` (or `\n\n` in lenient mode) exists.
+3. **Evaluate**:
+   * If not found: Returns `HttpParseStatus.NeedMoreData`. You wait for the socket to read more bytes and call `ParseHead` again with the updated count.
+   * If found: Parses the start-line, decodes the request method and URI target, interns known headers, resolves body framing, and returns `HttpParseStatus.Complete`.
+   * If malformed: Returns `HttpParseStatus.Error` with the exact HTTP error status code (`400`, `414`, `431`, `501`, `505`).
 
+### Code Example: Socket Buffer Parsing
 ```csharp
 using System;
 using cshttp;
 
-// Suppose 'buf' holds bytes read from a socket from index 'start' to 'end'
 var options = new ParserOptions
 {
     MaxRequestLineLength = 8 * 1024, // 414 URI Too Long if exceeded
-    MaxHeaderBytes = 32 * 1024,      // 431 Request Header Fields Too Large if exceeded
+    MaxHeaderBytes = 32 * 1024,      // 431 Request Header Fields Too Large
     MaxHeaderCount = 100,            // 431 if exceeded
-    AllowBareLf = false              // Strict CRLF required by default
+    AllowBareLf = false              // Strict RFC CRLF enforcement
 };
 
 HttpRequestHead head;
@@ -60,51 +72,82 @@ HttpParseResult result = HttpRequestParser.ParseHead(buf, start, end - start, op
 switch (result.Status)
 {
     case HttpParseStatus.NeedMoreData:
-        // Read more bytes into 'buf' at 'end' and call ParseHead again with the same 'start'
+        // Keep buffer intact, read more bytes into 'buf' at 'end', call ParseHead again
         break;
 
     case HttpParseStatus.Error:
-        // Send result.ErrorStatusCode (e.g. 400, 414, 431, 505) and close the connection
-        Console.WriteLine($"HTTP {result.ErrorStatusCode}: {result.ErrorMessage}");
+        // Reply with result.ErrorStatusCode (400, 414, 431, 505) and close socket
+        Console.WriteLine($"[HTTP {result.ErrorStatusCode}] {result.ErrorMessage}");
         break;
 
     case HttpParseStatus.Complete:
-        start += result.Consumed; // Advance past the HTTP head to the body (or next pipelined request)
+        // Advance buffer pointer past the head:
+        start += result.Consumed;
 
-        Console.WriteLine($"Method     : {head.Method}");       // e.g. "POST" (interned for common methods)
-        Console.WriteLine($"Path       : {head.Path}");         // Raw path, e.g. "/api/upload"
-        Console.WriteLine($"Query      : {head.Query}");        // Raw query without '?', or null
-        Console.WriteLine($"Version    : {head.Version}");      // "HTTP/1.1" or "HTTP/1.0"
-        Console.WriteLine($"Host       : {head.Host}");         // Validated Host header or absolute-URI authority
-        Console.WriteLine($"KeepAlive  : {head.KeepAlive}");    // RFC 9112 Connection keep-alive resolution
-        Console.WriteLine($"BodyKind   : {head.BodyKind}");     // None (no body or Content-Length: 0), ContentLength, or Chunked
-        Console.WriteLine($"ContentLen : {head.ContentLength}");// Declared bytes, 0 when no body, or -1 for Chunked
+        Console.WriteLine($"Method        : {head.Method}");       // e.g. "POST"
+        Console.WriteLine($"Path          : {head.Path}");         // Raw path, e.g. "/api/upload"
+        Console.WriteLine($"Query         : {head.Query}");        // Raw query string or null
+        Console.WriteLine($"Version       : {head.Version}");      // "HTTP/1.1"
+        Console.WriteLine($"Host          : {head.Host}");         // Canonical Host header
+        Console.WriteLine($"KeepAlive     : {head.KeepAlive}");    // Resolved connection reuse
+        Console.WriteLine($"BodyKind      : {head.BodyKind}");     // None | ContentLength | Chunked
+        Console.WriteLine($"ContentLength : {head.ContentLength}");// Length in bytes (-1 for chunked)
         break;
 }
 ```
 
 ---
 
-## 4. Built-In RFC 9112 Request-Smuggling & Security Defenses
+## 4. Message Models & Structures
 
-`HttpRequestParser` enforces every RFC 9112 security requirement at the byte level:
+### `HttpRequestHead`
+Represents the fully validated HTTP request envelope:
 
-| Attack Vector | `cshttp` Defense | Error Status |
-| :--- | :--- | :---: |
-| **TE.CL / CL.TE Request Smuggling** | Rejects any request containing both `Transfer-Encoding` and `Content-Length` (`RFC 9112 §6.3`). | `400 Bad Request` |
-| **Duplicate / Conflicting `Content-Length`** | Rejects multiple `Content-Length` headers or comma-separated lists whose values differ (e.g. `Content-Length: 5, 10`); identical repeats (`5, 5`) are accepted as RFC 9112 §6.3 allows. | `400 Bad Request` |
-| **Transfer-Encoding Obfuscation** | Rejects `Transfer-Encoding` in HTTP/1.0; requires the final coding to be `chunked`; rejects `chunked` applied more than once; rejects unknown transfer codings. | `400` / `501` |
-| **Bare CR / Bare LF Injection** | Rejects bare `\r` anywhere in the start-line or headers; rejects bare `\n` unless `ParserOptions.AllowBareLf = true`. | `400 Bad Request` |
-| **Obsolete Line Folding (`obs-fold`)** | Rejects header continuation lines starting with `SP` or `HTAB` (`RFC 9112 §5.2`). | `400 Bad Request` |
-| **Whitespace Before Colon** | Rejects `Header-Name : value` (`RFC 9112 §5.1` smuggling vector). | `400 Bad Request` |
-| **Host Header Spoofing** | Requires exactly one valid `Host` header in HTTP/1.1; rejects multiple `Host` headers or invalid authority characters. | `400 Bad Request` |
-| **Oversized Request Line / Headers** | Enforces `MaxRequestLineLength` (default 8 KB) and `MaxHeaderBytes` (default 32 KB) before allocating strings. | `414` / `431` |
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Method` | `string` | HTTP method verb (`"GET"`, `"POST"`, `"PUT"`, `"DELETE"`, etc.). Common methods are interned. |
+| `Target` | `string` | The exact request target as received on the wire (`"/index.html?ref=1"`). |
+| `TargetForm` | `RequestTargetForm` | RFC 9112 form: `Origin` (`/path`), `Absolute` (`http://...`), `Authority` (`host:port`), or `Asterisk` (`*`). |
+| `Path` | `string` | Extracted URI path component. |
+| `Query` | `string` | Extracted raw query string (without leading `?`), or `null` if absent. |
+| `Version` | `string` | HTTP version (`"HTTP/1.1"` or `"HTTP/1.0"`). |
+| `Headers` | `HttpHeaders` | The wire-ordered header collection. |
+| `Host` | `string` | Validated Host header authority. |
+| `KeepAlive` | `bool` | RFC 9112 connection lifetime resolution (`true` for keep-alive, `false` for close). |
+| `Expect100Continue`| `bool` | `true` if `Expect: 100-continue` header was sent by the client. |
+| `BodyKind` | `HttpBodyKind` | `None`, `ContentLength`, or `Chunked`. |
+| `ContentLength` | `long` | Declared body length in bytes (`0` for `None`, `-1` for `Chunked`). |
+
+### `HttpHeaders` Collection
+`HttpHeaders` preserves strict wire order while enabling case-insensitive $\mathcal{O}(1)$ lookups:
+
+* **`headers["Host"]`**: Returns the value of the header, or `null` if not found. If multiple occurrences exist, returns a comma-delimited combination per RFC 9110 §5.3.
+* **`headers.GetValues("Header-Name")`**: Returns an array of all values for the specified name without comma-merging (mandatory for multiple `Set-Cookie` headers).
+* **`headers.Contains("Header-Name")`**: Fast boolean check.
+* **`headers.Add(name, value)`**: Appends a header while checking for forbidden characters.
 
 ---
 
-## 5. Incremental Zero-Copy Chunked Decoding (`ChunkedDecoder`)
+## 5. Body Framing Rules (RFC 9112 §6.3)
 
-When `head.BodyKind == HttpBodyKind.Chunked`, use `ChunkedDecoder` to decode the body stream incrementally without copying bytes out of your receive buffer:
+`cshttp.core` strictly implements the 8 precedence rules defined in **RFC 9112 Section 6.3**:
+
+| Precedence | Condition | Resulting `HttpBodyKind` | Action |
+| :---: | :--- | :---: | :--- |
+| **Rule 1** | 1xx, 204, or 304 response | `None` | Any `Content-Length` or `Transfer-Encoding` is ignored or rejected. |
+| **Rule 2** | 2xx response to `CONNECT` | `Tunnel` | Direct socket tunnel established. |
+| **Rule 3** | `Transfer-Encoding` + `Content-Length` | `Error (400)` | **Request Smuggling Guard**: Any message containing both framing headers is rejected immediately. |
+| **Rule 4** | `Transfer-Encoding: chunked` | `Chunked` | Body is framed using chunked transfer coding; final chunk `0\r\n\r\n` concludes the stream. |
+| **Rule 5** | Duplicate `Content-Length` | `ContentLength` or `Error (400)` | Multiple identical values (e.g. `10, 10`) are collapsed; conflicting values (e.g. `10, 20`) trigger `400 Bad Request`. |
+| **Rule 6** | Valid single `Content-Length` | `ContentLength` | Exactly `Content-Length` bytes form the message body. |
+| **Rule 7** | Request with neither TE nor CL | `None` | The request has no message body (`ContentLength = 0`). |
+| **Rule 8** | Response with neither TE nor CL | `UntilClose` | Response body continues until the server closes the TCP socket. |
+
+---
+
+## 6. Incremental Zero-Copy `ChunkedDecoder`
+
+When `head.BodyKind == HttpBodyKind.Chunked`, `ChunkedDecoder` parses chunk boundaries, hex sizes, chunk extensions, and trailers incrementally without intermediate byte copying:
 
 ```csharp
 var decoder = new ChunkedDecoder
@@ -122,41 +165,84 @@ while (true)
 
     if (status == ChunkedStatus.Data)
     {
-        // Zero-copy slice inside 'buf' at [dataOffset .. dataOffset + dataCount]
+        // Zero-copy slice directly inside the existing 'buf':
         outputStream.Write(buf, dataOffset, dataCount);
         continue;
     }
     if (status == ChunkedStatus.Complete)
     {
-        // Terminating '0\r\n\r\n' chunk and trailers consumed!
-        // Any remaining bytes in 'buf' after 'start' belong to the next pipelined request.
+        // Terminal chunk '0\r\n\r\n' and all trailers have been fully parsed!
+        // start now points to the next pipelined HTTP request in the buffer.
+        break;
+    }
+    if (status == ChunkedStatus.NeedMoreData)
+    {
+        // Read more bytes from network into 'buf'
         break;
     }
     if (status == ChunkedStatus.Error)
     {
-        throw new Exception("Malformed chunked body: " + decoder.ErrorMessage);
-    }
-    if (status == ChunkedStatus.NeedMoreData)
-    {
-        // Read more bytes from the socket into 'buf'
+        throw new InvalidOperationException("Chunked decode error: " + decoder.ErrorMessage);
     }
 }
 ```
 
 ---
 
-## 6. Response Head Serialization & Header Injection Guard (`HttpResponseWriter`)
+## 7. Response Serialization (`HttpResponseWriter`)
 
-`HttpResponseWriter` builds wire-ready HTTP/1.1 response headers while validating every header name (`HttpChars.IsToken`) and value (`HttpChars.IsSafeFieldValue`) to guarantee that untrusted user data can never inject `\r` or `\n` (HTTP Response Splitting):
+`HttpResponseWriter` constructs wire-ready byte arrays for outbound HTTP responses. It enforces strict header validation to protect against **HTTP Response Splitting**:
 
 ```csharp
 var headers = new HttpHeaders();
 headers.Add("Date", HttpDate.Format(DateTime.UtcNow));
-headers.Add("Content-Type", "application/json; charset=utf-8");
-headers.Add("Content-Length", "15");
+headers.Add("Content-Type", "text/html; charset=utf-8");
+headers.Add("Content-Length", bodyBytes.Length.ToString());
 headers.Add("Connection", "keep-alive");
 
-// Returns Latin-1 byte[] for "HTTP/1.1 200 OK\r\nDate: ...\r\n\r\n"
-// Throws ArgumentException if any header name or value contains CR/LF/NUL control chars.
-byte[] headBytes = HttpResponseWriter.BuildHead(200, null, headers);
+// Serializes the status line and headers into a wire-ready ASCII/Latin-1 byte[]
+// Throws ArgumentException if any header key or value contains raw \r, \n, or \0 characters.
+byte[] headBytes = HttpResponseWriter.BuildHead(200, "OK", headers);
 ```
+
+### Chunked Response Helpers
+When streaming dynamic output where total length is unknown:
+* `HttpResponseWriter.WriteChunkHeader(long size)`: Returns the chunk size in hex followed by CRLF (`e.g. "1A4\r\n"`).
+* `HttpResponseWriter.FinalChunk`: Static byte array containing the terminal chunk (`"0\r\n\r\n"`).
+
+---
+
+## 8. Security Specifications & Defenses
+
+| Attack Vector | RFC Reference | `cshttp.core` Enforcement | Error Code |
+| :--- | :--- | :--- | :---: |
+| **TE.CL / CL.TE Smuggling** | RFC 9112 §6.3 | Messages with both `Transfer-Encoding` and `Content-Length` are rejected immediately. | `400 Bad Request` |
+| **Duplicate `Content-Length`** | RFC 9112 §6.3 | Conflicting `Content-Length` values are rejected. Identical duplicates are safely collapsed. | `400 Bad Request` |
+| **Whitespace Before Colon** | RFC 9112 §5.1 | `Header-Name : value` is rejected as an invalid smuggling probe. | `400 Bad Request` |
+| **Obsolete Line Folding (`obs-fold`)** | RFC 9112 §5.2 | Header continuations starting with SP/HTAB are rejected by default. | `400 Bad Request` |
+| **Bare CR / LF Injection** | RFC 9112 §2.2 | Bare `\r` is rejected everywhere. Bare `\n` is rejected unless `AllowBareLf = true`. | `400 Bad Request` |
+| **Header Injection / Response Splitting** | RFC 9110 | Header keys and values must pass `HttpChars.IsToken` and `HttpChars.IsSafeFieldValue`. | `ArgumentException` |
+| **URI & Header Flooding** | RFC 9112 | Strict bounds: `MaxRequestLineLength` (8 KB) and `MaxHeaderBytes` (32 KB) enforced before allocations. | `414` / `431` |
+| **ReDoS (Regex Denial of Service)** | — | **Zero regular expressions** used on untrusted byte input. | Immune |
+
+---
+
+## 9. Configuration (`ParserOptions`)
+
+```csharp
+public sealed class ParserOptions
+{
+    public int MaxRequestLineLength { get; set; } = 8192;   // 8 KB
+    public int MaxHeaderBytes { get; set; } = 32768;        // 32 KB
+    public int MaxHeaderCount { get; set; } = 100;          // Max number of header lines
+    public bool AllowBareLf { get; set; } = false;          // false = Strict CRLF required
+    public bool RejectObsFold { get; set; } = true;         // Reject obsolete line folding
+}
+```
+
+---
+
+## 10. Summary: When to Use `cshttp.core`
+
+* **Use `cshttp.core` directly** if you are writing custom network infrastructure (TCP reverse proxies, TLS terminators, API gateways, network packet inspectors, or custom socket loops) and only require high-performance, specification-compliant HTTP/1.1 byte framing without web abstractions.
+* **For general web application development**, use the unified [`cshttp`](../README.md) micro web server, which bundles `cshttp.core`, the `cshttp.web` toolkit (`HttpRequest`, `HttpResponse`, `Session`, `Cookies`, `StaticFiles`), and the `HttpServer` socket listener into one complete stack.
