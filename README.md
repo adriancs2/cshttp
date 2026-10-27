@@ -265,4 +265,4 @@ Drop the `Core/`, `Web/`, and `Server/` folders directly into your solution for 
 
 ## License
 
-MIT License. Free for commercial and non-commercial use.
+The Unlicense (Public Domain). Free and unencumbered software released into the public domain for any commercial or non-commercial use.

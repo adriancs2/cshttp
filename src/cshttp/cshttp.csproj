@@ -1,7 +1,29 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <!-- cshttp core: wire-format HTTP/1.1 parsing and serialization. No I/O. -->
   <PropertyGroup>
     <TargetFrameworks>net48;net8.0</TargetFrameworks>
     <AssemblyName>cshttp</AssemblyName>
+    <Title>cshttp - C# High Performance Micro Web Framework</Title>
+    <Authors>adriancs</Authors>
+    <Company>adriancs</Company>
+    <Description>A fast, zero-dependency, pure C# HTTP/1.1 micro web server and toolkit. Built-in wire parser and classic Request/Response API. Runs on .NET Framework 4.8 and .NET 8/10+.</Description>
+    <Copyright>adriancs</Copyright>
+    <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/adriancs2/cshttp</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/adriancs2/cshttp.git</RepositoryUrl>
+    <PackageTags>cshttp;web server;micro web framework;http-server;webserver;http;embedded-server;net48;csharp</PackageTags>
+    <PackageReleaseNotes>Support both .NET Framework and .NET 8/10+</PackageReleaseNotes>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 </Project>
