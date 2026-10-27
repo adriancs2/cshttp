@@ -207,8 +207,8 @@ namespace cshttp
                 r.CacheControl = "no-store";
                 string title = status + " " + HttpStatus.GetReasonPhrase(status);
                 string detail = _o.DetailedErrors
-                    ? "<pre>" + HttpUtility.HtmlEncode(ex.ToString()) + "</pre>"
-                    : (hx != null && status < 500 ? "<p>" + HttpUtility.HtmlEncode(hx.Message) + "</p>" : string.Empty);
+                    ? "<pre>" + WebApp.HtmlEncode(ex.ToString()) + "</pre>"
+                    : (hx != null && status < 500 ? "<p>" + WebApp.HtmlEncode(hx.Message) + "</p>" : string.Empty);
                 r.Write("<!DOCTYPE html><html><head><title>" + title + "</title></head><body><h1>" + title + "</h1>" + detail + "</body></html>");
                 return true;
             }

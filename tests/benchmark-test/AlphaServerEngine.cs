@@ -45,7 +45,7 @@ namespace cshttp.Benchmark.Alpha10Internal
             if (handler == null) throw new ArgumentNullException("handler");
             if (Interlocked.Exchange(ref _started, 1) == 1) throw new InvalidOperationException("The server was already started.");
             _handler = handler;
-            HostingEnvironment.BeginHosting(_o.ContentRoot);
+            WebApp.BeginHosting(_o.ContentRoot);
             foreach (ServerBinding binding in _o.Bindings)
             {
                 var socket = new Socket(binding.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);

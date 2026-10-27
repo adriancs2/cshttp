@@ -94,7 +94,7 @@ namespace cshttp
             {
                 string key = GetKey(i);
                 string[] values = GetValues(i);
-                string encodedKey = key == null ? null : HttpUtility.UrlEncode(key);
+                string encodedKey = key == null ? null : WebApp.UrlEncode(key);
                 if (values == null || values.Length == 0)
                 {
                     if (sb.Length > 0) sb.Append('&');
@@ -105,7 +105,7 @@ namespace cshttp
                 {
                     if (sb.Length > 0) sb.Append('&');
                     if (encodedKey != null) sb.Append(encodedKey).Append('=');
-                    sb.Append(HttpUtility.UrlEncode(v));
+                    sb.Append(WebApp.UrlEncode(v));
                 }
             }
             return sb.ToString();

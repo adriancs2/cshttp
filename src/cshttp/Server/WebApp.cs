@@ -10,7 +10,7 @@ namespace cshttp
     /// Beginner-friendly entry point for starting a cshttp web application with minimal ceremony.
     /// Supports both single-port and multi-port hosting with synchronous request handlers.
     /// </summary>
-    public static class WebApp
+    public static partial class WebApp
     {
         static int _port = 8080;
         static int[] _ports;
@@ -44,11 +44,16 @@ namespace cshttp
                     if (!string.IsNullOrEmpty(autoRoot))
                     {
                         Options.ContentRoot = autoRoot;
+                        SetApplicationPhysicalPath(autoRoot);
                     }
                 }
                 return Options.ContentRoot;
             }
-            set { Options.ContentRoot = value; }
+            set
+            {
+                Options.ContentRoot = value;
+                if (!string.IsNullOrEmpty(value)) SetApplicationPhysicalPath(value);
+            }
         }
 
         static string AutoFindContentRoot()
@@ -67,21 +72,6 @@ namespace cshttp
             }
             catch { }
             return AppDomain.CurrentDomain.BaseDirectory;
-        }
-
-        /// <summary>
-        /// Safely maps a virtual URL path (e.g. "/css/site.css") to a physical path under the application root.
-        /// Returns null if the path contains traversal segments (".."), invalid characters, or escapes the root.
-        /// </summary>
-        public static string MapPath(string virtualPath)
-        {
-            if (string.IsNullOrEmpty(virtualPath)) return null;
-            string root = !string.IsNullOrEmpty(_options != null ? _options.ContentRoot : null)
-                ? _options.ContentRoot
-                : HostingEnvironment.ApplicationPhysicalPath;
-            if (virtualPath == "~" || virtualPath == "~/" || virtualPath == "/")
-                return Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
-            return StaticFiles.SafeCombine(root, virtualPath);
         }
 
         /// <summary>Default HTTP port when calling WebApp.Run(OnRequest). Defaults to 8080.</summary>
@@ -181,18 +171,6 @@ namespace cshttp
             Console.WriteLine("Server running at " + string.Join(", ", urls.ToArray()) + " (Press Ctrl+C to stop)");
 
             new HttpServer(options).Run(ctx => handler());
-        }
-
-        /// <summary>Queues a background work item that is safely tracked for graceful server shutdown.</summary>
-        public static void BackgroundWork(Action<System.Threading.CancellationToken> workItem)
-        {
-            HostingEnvironment.QueueBackgroundWork(workItem);
-        }
-
-        /// <summary>Queues an async background work item that is safely tracked for graceful server shutdown.</summary>
-        public static void BackgroundWork(Func<System.Threading.CancellationToken, System.Threading.Tasks.Task> workItem)
-        {
-            HostingEnvironment.QueueBackgroundWork(workItem);
         }
 
         static void ValidatePort(int port)
@@ -317,7 +295,5 @@ namespace cshttp
         public static void RedirectPermanent(string url, bool endResponse) { Current.RedirectPermanent(url, endResponse); }
         public static void Reset() { Current.Reset(); }
         public static void CompleteRequest() { HttpContext.Current.ApplicationInstance.CompleteRequest(); }
-
-
     }
 }

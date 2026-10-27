@@ -41,8 +41,8 @@ namespace HearthFileManager
             WebApp.Options.OnUnhandledException = (ctx, ex) => Console.Error.WriteLine("[error] " + ctx.Request.RawUrl + ": " + ex.Message);
 
             // ---- was Application_Start ----
-            HostingEnvironment.SetApplicationPhysicalPath(root);
-            AppConfig.AppDataPath = HostingEnvironment.MapPath("~/App_Data");
+            WebApp.SetApplicationPhysicalPath(root);
+            AppConfig.AppDataPath = WebApp.MapPath("~/App_Data");
             var fs = new FsService(AppConfig.AppDataPath, AppConfig.MainRoot());
             fs.CleanupTemp(TimeSpan.FromDays(1));
             AppConfig.Get(); // migrates/creates config.json

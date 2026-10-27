@@ -345,9 +345,9 @@ namespace CompleteApiDemo.RH
             SendJson(new
             {
                 original = input,
-                htmlEncoded = HttpUtility.HtmlEncode(input),
-                urlEncoded = HttpUtility.UrlEncode(input),
-                jsStringEncoded = HttpUtility.JavaScriptStringEncode(input)
+                htmlEncoded = WebApp.HtmlEncode(input),
+                urlEncoded = WebApp.UrlEncode(input),
+                jsStringEncoded = WebApp.JavaScriptStringEncode(input)
             });
         }
 

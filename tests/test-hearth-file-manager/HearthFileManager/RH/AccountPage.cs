@@ -25,7 +25,7 @@ namespace HearthFileManager.RH
             foreach (string p in Perm.All)
             {
                 bool has = me.Has(p);
-                perms.Append($"<li class='{(has ? "yes" : "no")}'><i class='fa-solid {(has ? "fa-circle-check" : "fa-circle-minus")}'></i> {HttpUtility.HtmlEncode(PermLabels[p])}</li>");
+                perms.Append($"<li class='{(has ? "yes" : "no")}'><i class='fa-solid {(has ? "fa-circle-check" : "fa-circle-minus")}'></i> {WebApp.HtmlEncode(PermLabels[p])}</li>");
             }
             if (!me.Has(Perm.Files)) perms.Append("<li class='note'>Without “Manage files” you can view and download files, but not change them.</li>");
 
@@ -38,13 +38,13 @@ namespace HearthFileManager.RH
 <div class='page'>
     <header class='page-header'>
         <h1><i class='fa-solid fa-user-gear'></i> My Account</h1>
-        <p>Signed in as <b>{HttpUtility.HtmlEncode(me.Username)}</b></p>
+        <p>Signed in as <b>{WebApp.HtmlEncode(me.Username)}</b></p>
     </header>
 
     <div class='account-grid'>
         <form class='card' id='pw-form' autocomplete='on'>
             <h2><i class='fa-solid fa-key'></i> Change password</h2>
-            <input type='text' name='username' value='{HttpUtility.HtmlAttributeEncode(me.Username)}' autocomplete='username' hidden />
+            <input type='text' name='username' value='{WebApp.HtmlAttributeEncode(me.Username)}' autocomplete='username' hidden />
             <label class='field'><span>Current password</span><input type='password' id='pw-current' autocomplete='current-password' required /></label>
             <label class='field'><span>New password (min. 8 characters)</span><input type='password' id='pw-new' autocomplete='new-password' minlength='8' required /></label>
             <label class='field'><span>Repeat new password</span><input type='password' id='pw-repeat' autocomplete='new-password' minlength='8' required /></label>

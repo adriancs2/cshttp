@@ -320,17 +320,17 @@ namespace CompleteApiDemo.RH
         </div>
       </div>
 
-      <!-- 13. Security / HttpUtility -->
+      <!-- 13. Security / WebApp Encoding -->
       <div class=""card"">
         <div class=""card-header"">
           <span class=""card-title""><i class=""fa-solid fa-shield-halved""></i> 13. Security & Utility</span>
-          <code>HttpUtility</code>
+          <code>WebApp.HtmlEncode / UrlEncode</code>
         </div>
         <div class=""card-body"">
           <p>Zero-dependency XSS protection, URL encoding, and JavaScript string escaping.</p>
           <div class=""code-preview"">
-<span class=""keyword"">string</span> safe = <span class=""type"">HttpUtility</span>.HtmlEncode(untrusted);
-<span class=""keyword"">string</span> url  = <span class=""type"">HttpUtility</span>.UrlEncode(text);
+<span class=""keyword"">string</span> safe = <span class=""type"">WebApp</span>.HtmlEncode(untrusted);
+<span class=""keyword"">string</span> url  = <span class=""type"">WebApp</span>.UrlEncode(text);
           </div>
           <div class=""demo-action"">
             <div class=""form-group"">

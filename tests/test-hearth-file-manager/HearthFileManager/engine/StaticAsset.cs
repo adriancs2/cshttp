@@ -10,7 +10,7 @@ namespace System
 
         static string Version(string path)
         {
-            string phys = HostingEnvironment.MapPath("~" + path);
+            string phys = WebApp.MapPath("~" + path);
             return (phys != null && File.Exists(phys)) ? File.GetLastWriteTimeUtc(phys).ToString("yyyyMMddHHmmss") : "0";
         }
     }

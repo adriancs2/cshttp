@@ -18,8 +18,8 @@ namespace CompleteApiDemo.engine
 <head>
   <meta charset=""utf-8"" />
   <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>{HttpUtility.HtmlEncode(Title)}</title>
-  <meta name=""description"" content=""{HttpUtility.HtmlAttributeEncode(Description)}"" />
+  <title>{WebApp.HtmlEncode(Title)}</title>
+  <meta name=""description"" content=""{WebApp.HtmlAttributeEncode(Description)}"" />
   <link rel=""icon"" type=""image/svg+xml"" href=""/favicon.svg"" />
   <!-- FontAwesome 6 (Free CDN) -->
   <link rel=""stylesheet"" href=""https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"" crossorigin=""anonymous"" referrerpolicy=""no-referrer"" />

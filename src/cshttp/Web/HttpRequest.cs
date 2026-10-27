@@ -366,7 +366,7 @@ namespace cshttp
 
         public string[] UserLanguages { get { return SplitHeader("Accept-Language"); } }
 
-        public string MapPath(string virtualPath) { return HostingEnvironment.MapPath(virtualPath); }
+        public string MapPath(string virtualPath) { return WebApp.MapPath(virtualPath); }
 
         void ParseBody()
         {

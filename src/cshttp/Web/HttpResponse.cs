@@ -510,7 +510,7 @@ namespace cshttp
             IsRequestBeingRedirected = true;
             _contentType = "text/html";
             Write("<html><head><title>Object moved</title></head><body>\r\n<h2>Object moved to <a href=\""
-                + HttpUtility.HtmlAttributeEncode(target) + "\">here</a>.</h2>\r\n</body></html>\r\n");
+                + WebApp.HtmlAttributeEncode(target) + "\">here</a>.</h2>\r\n</body></html>\r\n");
             if (endResponse) End();
         }
 

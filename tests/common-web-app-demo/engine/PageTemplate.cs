@@ -27,14 +27,14 @@ namespace CommonWebAppDemo.engine
 <head>
   <meta charset='utf-8' />
   <meta name='viewport' content='width=device-width, initial-scale=1.0' />
-  <title>{HttpUtility.HtmlEncode(Title)}</title>
-  <meta name='description' content='{HttpUtility.HtmlAttributeEncode(Description)}' />
+  <title>{WebApp.HtmlEncode(Title)}</title>
+  <meta name='description' content='{WebApp.HtmlAttributeEncode(Description)}' />
   <link rel='icon' type='image/svg+xml' href='{Favicon}' />
   <!-- Open Graph / Social Cards -->
   <meta property='og:type' content='website' />
-  <meta property='og:title' content='{HttpUtility.HtmlAttributeEncode(effOgTitle)}' />
-  <meta property='og:description' content='{HttpUtility.HtmlAttributeEncode(effOgDesc)}' />
-  <meta property='og:image' content='{HttpUtility.HtmlAttributeEncode(OgImage)}' />
+  <meta property='og:title' content='{WebApp.HtmlAttributeEncode(effOgTitle)}' />
+  <meta property='og:description' content='{WebApp.HtmlAttributeEncode(effOgDesc)}' />
+  <meta property='og:image' content='{WebApp.HtmlAttributeEncode(OgImage)}' />
   <!-- Core Stylesheet with Cache-Buster -->
   {StaticAsset.Css("/assets/css/site.css")}
 ");
@@ -43,7 +43,7 @@ namespace CommonWebAppDemo.engine
                 sb.Append("  " + ExtraHeaderText + "\n");
             }
             sb.Append("</head>\n");
-            sb.Append("<body class='" + HttpUtility.HtmlAttributeEncode(BodyClass) + "'>\n");
+            sb.Append("<body class='" + WebApp.HtmlAttributeEncode(BodyClass) + "'>\n");
             sb.Append(@"  <header class='navbar'>
     <div class='nav-container'>
       <a href='/' class='nav-brand'>

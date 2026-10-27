@@ -163,11 +163,11 @@ namespace cshttp.Tests
                         byte[] b = Encoding.UTF8.GetBytes(s);
                         UrlEncodedParser.Parse(b, 0, b.Length, new HttpValueCollection(), Encoding.UTF8, 0);
                         HttpCookieCollection.ParseInto(s, new HttpCookieCollection());
-                        HttpUtility.HtmlDecode(s);
-                        HttpUtility.UrlDecode(s);
+                        WebApp.HtmlDecode(s);
+                        WebApp.UrlDecode(s);
                         HeaderValue.GetParameter("x; " + s, "a");
-                        A.Eq(s, HttpUtility.UrlDecode(HttpUtility.UrlEncode(s)), "url round trip");
-                        A.Eq(s, HttpUtility.HtmlDecode(HttpUtility.HtmlEncode(s)), "html round trip");
+                        A.Eq(s, WebApp.UrlDecode(WebApp.UrlEncode(s)), "url round trip");
+                        A.Eq(s, WebApp.HtmlDecode(WebApp.HtmlEncode(s)), "html round trip");
                     }
                     catch (AssertException) { throw; }
                     catch (Exception ex) { throw new AssertException("decoder threw " + ex.GetType().Name + " on <" + s + ">"); }
@@ -217,7 +217,7 @@ namespace cshttp.Tests
                     while (s.ActiveConnections > 0 && sw.ElapsedMilliseconds < 5000) Thread.Sleep(20);
                     A.Eq(0, s.ActiveConnections, "all connections released");
                 }
-                HostingEnvironment.BeginHosting(null);
+                WebApp.BeginHosting(null);
             });
         }
 

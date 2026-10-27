@@ -216,7 +216,15 @@ Response.Redirect("/home");
 Response.RedirectPermanent("/new-page");
 ```
 
-### 12. Safe Background Work (`WebApp.BackgroundWork`)
+### 12. Virtual Path Resolution (`WebApp.MapPath`)
+Safely resolve virtual web paths (`~/`, `/`) to physical disk paths under the application root (with built-in path-traversal protection):
+```csharp
+string rootFolder = WebApp.MapPath("~/");
+string dbFile     = WebApp.MapPath("~/App_Data/app.db");
+string cssFile    = WebApp.MapPath("/assets/site.css");
+```
+
+### 13. Safe Background Work (`WebApp.BackgroundWork`)
 Run tasks in the background that are safely tracked during OS/IIS graceful shutdown:
 ```csharp
 WebApp.BackgroundWork(ct =>
@@ -226,11 +234,13 @@ WebApp.BackgroundWork(ct =>
 });
 ```
 
-### 13. Security & Utilities (`HttpUtility`)
+### 14. Security & Encoding (`WebApp.HtmlEncode` & `WebApp.UrlEncode`)
 Zero-dependency XSS protection, URL encoding, and JavaScript string escaping:
 ```csharp
-string safeHtml = HttpUtility.HtmlEncode(untrustedInput);
-string safeUrl  = HttpUtility.UrlEncode("search query");
+string safeHtml = WebApp.HtmlEncode(untrustedInput);
+string safeAttr = WebApp.HtmlAttributeEncode(untrustedAttr);
+string safeUrl  = WebApp.UrlEncode("search query");
+string safeJs   = WebApp.JavaScriptStringEncode(untrustedJs);
 ```
 
 ---

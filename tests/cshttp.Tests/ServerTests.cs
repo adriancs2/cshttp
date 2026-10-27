@@ -78,7 +78,7 @@ namespace cshttp.Tests
 
             if (path.StartsWith("/static/"))
             {
-                string filePath = WebApp.MapPath(Request.Path);
+                string filePath = StaticFiles.SafeCombine(WebApp.ApplicationPhysicalPath, Request.Path);
                 if (!Response.TransmitFile(filePath))
                 {
                     Response.StatusCode = 404;
@@ -167,7 +167,7 @@ namespace cshttp.Tests
                     Response.SuppressContent = true;
                     ctx.ApplicationInstance.CompleteRequest();
                     return;
-                case "/mappath": Response.Write(HostingEnvironment.MapPath("~/static/site.css")); return;
+                case "/mappath": Response.Write(WebApp.MapPath("~/static/site.css")); return;
             }
             Response.StatusCode = 404;
             Response.Write("nf");
@@ -521,7 +521,7 @@ namespace cshttp.Tests
 
             t.Add("server: background work", () =>
             {
-                HostingEnvironment.BeginHosting(null);
+                WebApp.BeginHosting(null);
                 int before = Volatile.Read(ref ServerFixture.BackgroundCount);
                 using (var c = Client()) A.Eq("queued", c.Get("/bg").Text);
                 var sw = Stopwatch.StartNew();
@@ -654,7 +654,7 @@ namespace cshttp.Tests
                     A.True(sw.ElapsedMilliseconds < 4000, "stop did not hang");
                 }
                 A.Throws<SocketException>(() => new RawClient(ep, 1000).Dispose(), "listener closed");
-                HostingEnvironment.BeginHosting(null);
+                WebApp.BeginHosting(null);
             });
 
             t.Add("server: HTTPS with a self-signed certificate", () =>
@@ -677,7 +677,7 @@ namespace cshttp.Tests
                         A.Eq("hello", c.Get("/hello").Text, "keep-alive over TLS");
                     }
                 }
-                finally { s.Stop(); HostingEnvironment.BeginHosting(null); }
+                finally { s.Stop(); WebApp.BeginHosting(null); }
             });
         }
 

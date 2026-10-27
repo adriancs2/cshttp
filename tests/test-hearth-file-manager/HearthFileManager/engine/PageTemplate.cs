@@ -18,7 +18,7 @@ namespace HearthFileManager.engine
 
         public string GenerateHtmlHeader()
         {
-            string title = HttpUtility.HtmlEncode(string.IsNullOrEmpty(Title) ? "Hearth File Manager" : Title + " · Hearth");
+            string title = WebApp.HtmlEncode(string.IsNullOrEmpty(Title) ? "Hearth File Manager" : Title + " · Hearth");
             string css = StaticAsset.Css("/assets/fontawesome/css/all.min.css") + "\n" + StaticAsset.Css("/css/site.css");
             string sidebar = ShowSidebar ? BuildSidebar() : "";
             string shellClass = ShowSidebar ? "app-shell" : "app-shell no-sidebar";
@@ -33,7 +33,7 @@ namespace HearthFileManager.engine
 {css}
 {ExtraHeaderText}
 </head>
-<body class='{HttpUtility.HtmlAttributeEncode(BodyClass)}'>
+<body class='{WebApp.HtmlAttributeEncode(BodyClass)}'>
 <div class='{shellClass}'>
 {sidebar}
 <main class='app-main'>
@@ -55,8 +55,8 @@ namespace HearthFileManager.engine
         string BuildSidebar()
         {
             obUser me = AppSession.LoginUser;
-            string username = HttpUtility.HtmlEncode(me != null ? me.Username : "");
-            string initial = HttpUtility.HtmlEncode(me != null && me.Username.Length > 0 ? me.Username.Substring(0, 1).ToUpperInvariant() : "?");
+            string username = WebApp.HtmlEncode(me != null ? me.Username : "");
+            string initial = WebApp.HtmlEncode(me != null && me.Username.Length > 0 ? me.Username.Substring(0, 1).ToUpperInvariant() : "?");
 
             // menu items the user is allowed to use
             string aiItem = me != null && me.Has(Perm.Ai) ? MenuItem("ai", "/ai", "fa-wand-magic-sparkles", "AI Website Builder") : "";

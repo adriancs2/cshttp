@@ -5,11 +5,7 @@ using System.Threading.Tasks;
 
 namespace cshttp
 {
-    /// <summary>
-    /// Replacement for System.Web.Hosting.HostingEnvironment: application root, MapPath and
-    /// background work that is cancelled and awaited on shutdown.
-    /// </summary>
-    public static class HostingEnvironment
+    public static partial class WebApp
     {
         static readonly object Sync = new object();
         static string _root;
@@ -26,7 +22,14 @@ namespace cshttp
             get
             {
                 string r = _root;
-                if (r == null) { SetApplicationPhysicalPath(AppDomain.CurrentDomain.BaseDirectory); r = _root; }
+                if (r == null)
+                {
+                    string initial = _options != null && !string.IsNullOrEmpty(_options.ContentRoot)
+                        ? _options.ContentRoot
+                        : AppDomain.CurrentDomain.BaseDirectory;
+                    SetApplicationPhysicalPath(initial);
+                    r = _root;
+                }
                 return r;
             }
         }
@@ -45,6 +48,7 @@ namespace cshttp
             string full = Path.GetFullPath(path);
             if (full[full.Length - 1] != Path.DirectorySeparatorChar) full += Path.DirectorySeparatorChar;
             _root = full;
+            if (_options != null) _options.ContentRoot = full.TrimEnd(Path.DirectorySeparatorChar);
         }
 
         /// <summary>Called by a host when it starts: sets the root (if given) and re-enables background work.</summary>
@@ -63,7 +67,7 @@ namespace cshttp
 
         /// <summary>
         /// Maps "~/x", "/x" or "x" to a physical path under the application root.
-        /// Paths that escape the root, or physical paths, throw.
+        /// Paths that escape the root, or physical paths, throw explicit exceptions (matching ASP.NET Server.MapPath).
         /// </summary>
         public static string MapPath(string virtualPath)
         {
@@ -81,7 +85,8 @@ namespace cshttp
             return full;
         }
 
-        internal static void QueueBackgroundWork(Action<CancellationToken> workItem)
+        /// <summary>Queues a background work item that is safely tracked for graceful server shutdown.</summary>
+        public static void BackgroundWork(Action<CancellationToken> workItem)
         {
             if (workItem == null) throw new ArgumentNullException("workItem");
             CancellationToken token;
@@ -95,7 +100,8 @@ namespace cshttp
             });
         }
 
-        internal static void QueueBackgroundWork(Func<CancellationToken, Task> workItem)
+        /// <summary>Queues an async background work item that is safely tracked for graceful server shutdown.</summary>
+        public static void BackgroundWork(Func<CancellationToken, Task> workItem)
         {
             if (workItem == null) throw new ArgumentNullException("workItem");
             CancellationToken token;

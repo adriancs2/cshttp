@@ -6,7 +6,7 @@ using System.Text;
 namespace cshttp
 {
     /// <summary>Encoding helpers with the same output as System.Web.HttpUtility (.NET 4.x).</summary>
-    public static class HttpUtility
+    public static partial class WebApp
     {
         /// <summary>Encodes &amp; &lt; &gt; " ' and chars 160-255 (as &amp;#N;).</summary>
         public static string HtmlEncode(string s)

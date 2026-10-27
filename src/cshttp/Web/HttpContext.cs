@@ -69,11 +69,11 @@ namespace cshttp
     {
         public string MachineName { get { return Environment.MachineName; } }
         public int ScriptTimeout { get; set; }
-        public string MapPath(string path) { return HostingEnvironment.MapPath(path); }
-        public string HtmlEncode(string s) { return HttpUtility.HtmlEncode(s); }
-        public string HtmlDecode(string s) { return HttpUtility.HtmlDecode(s); }
-        public string UrlEncode(string s) { return HttpUtility.UrlEncode(s); }
-        public string UrlDecode(string s) { return HttpUtility.UrlDecode(s); }
-        public string UrlPathEncode(string s) { return HttpUtility.UrlPathEncode(s); }
+        public string MapPath(string path) { return WebApp.MapPath(path); }
+        public string HtmlEncode(string s) { return WebApp.HtmlEncode(s); }
+        public string HtmlDecode(string s) { return WebApp.HtmlDecode(s); }
+        public string UrlEncode(string s) { return WebApp.UrlEncode(s); }
+        public string UrlDecode(string s) { return WebApp.UrlDecode(s); }
+        public string UrlPathEncode(string s) { return WebApp.UrlPathEncode(s); }
     }
 }

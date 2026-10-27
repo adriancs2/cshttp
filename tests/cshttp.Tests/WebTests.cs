@@ -219,25 +219,25 @@ namespace cshttp.Tests
                 A.Eq(400, ex.GetHttpCode());
             });
 
-            // ---------------- HttpUtility ----------------
+            // ---------------- WebApp (HttpUtility) ----------------
 
-            t.Add("HttpUtility: html encoding matches System.Web", () =>
+            t.Add("WebApp: html encoding matches System.Web", () =>
             {
-                A.Eq("&lt;a href=&#39;x&#39;&gt;&amp;&quot;&#233;\u4e16", HttpUtility.HtmlEncode("<a href='x'>&\"\u00e9\u4e16"));
-                A.Eq("&lt;b>&amp;&quot;&#39;", HttpUtility.HtmlAttributeEncode("<b>&\"'"));
-                A.Eq(null, HttpUtility.HtmlEncode((string)null));
-                A.Eq("", HttpUtility.HtmlEncode((object)null));
-                A.Eq("<a>&\"'\u00e9 \u00a0\U0001F600 &bogus; &#xZZ;", HttpUtility.HtmlDecode("&lt;a&gt;&amp;&quot;&#39;&#233; &nbsp;&#x1F600; &bogus; &#xZZ;"));
+                A.Eq("&lt;a href=&#39;x&#39;&gt;&amp;&quot;&#233;\u4e16", WebApp.HtmlEncode("<a href='x'>&\"\u00e9\u4e16"));
+                A.Eq("&lt;b>&amp;&quot;&#39;", WebApp.HtmlAttributeEncode("<b>&\"'"));
+                A.Eq(null, WebApp.HtmlEncode((string)null));
+                A.Eq("", WebApp.HtmlEncode((object)null));
+                A.Eq("<a>&\"'\u00e9 \u00a0\U0001F600 &bogus; &#xZZ;", WebApp.HtmlDecode("&lt;a&gt;&amp;&quot;&#39;&#233; &nbsp;&#x1F600; &bogus; &#xZZ;"));
             });
 
-            t.Add("HttpUtility: url and javascript encoding", () =>
+            t.Add("WebApp: url and javascript encoding", () =>
             {
-                A.Eq("a+b%26c%3dd%2f%c3%a9-_.!*()", HttpUtility.UrlEncode("a b&c=d/\u00e9-_.!*()"));
-                A.Eq("a b&c=d/\u00e9", HttpUtility.UrlDecode("a+b%26c%3dd%2f%c3%a9"));
-                A.Eq("/a%20b/%c3%a9?x=y z", HttpUtility.UrlPathEncode("/a b/\u00e9?x=y z"));
-                A.Eq("\\u003c/script\\u003e\\\"\\u0027\\n\\\\", HttpUtility.JavaScriptStringEncode("</script>\"'\n\\"));
-                A.Eq("\"x\"", HttpUtility.JavaScriptStringEncode("x", true));
-                NameValueCollection q = HttpUtility.ParseQueryString("?a=1&b=x+y&a=2");
+                A.Eq("a+b%26c%3dd%2f%c3%a9-_.!*()", WebApp.UrlEncode("a b&c=d/\u00e9-_.!*()"));
+                A.Eq("a b&c=d/\u00e9", WebApp.UrlDecode("a+b%26c%3dd%2f%c3%a9"));
+                A.Eq("/a%20b/%c3%a9?x=y z", WebApp.UrlPathEncode("/a b/\u00e9?x=y z"));
+                A.Eq("\\u003c/script\\u003e\\\"\\u0027\\n\\\\", WebApp.JavaScriptStringEncode("</script>\"'\n\\"));
+                A.Eq("\"x\"", WebApp.JavaScriptStringEncode("x", true));
+                NameValueCollection q = WebApp.ParseQueryString("?a=1&b=x+y&a=2");
                 A.Eq("1,2", q["a"]);
                 A.Eq("a=1&a=2&b=x+y", q.ToString());
             });
@@ -583,30 +583,30 @@ namespace cshttp.Tests
 
             t.Add("hosting: MapPath stays inside the root", () =>
             {
-                string root = HostingEnvironment.ApplicationPhysicalPath;
-                A.Eq(Path.Combine(root, "App_Data"), HostingEnvironment.MapPath("~/App_Data"));
-                A.Eq(Path.Combine(root, "css", "site.css"), HostingEnvironment.MapPath("/css/site.css"));
-                A.Eq(root.TrimEnd(Path.DirectorySeparatorChar), HostingEnvironment.MapPath("~/"));
-                A.Throws<HttpException>(() => HostingEnvironment.MapPath("~/../outside"));
-                A.Throws<HttpException>(() => HostingEnvironment.MapPath("/a/../../outside"));
-                A.Throws<ArgumentException>(() => HostingEnvironment.MapPath("C:\\Windows"));
+                string root = WebApp.ApplicationPhysicalPath;
+                A.Eq(Path.Combine(root, "App_Data"), WebApp.MapPath("~/App_Data"));
+                A.Eq(Path.Combine(root, "css", "site.css"), WebApp.MapPath("/css/site.css"));
+                A.Eq(root.TrimEnd(Path.DirectorySeparatorChar), WebApp.MapPath("~/"));
+                A.Throws<HttpException>(() => WebApp.MapPath("~/../outside"));
+                A.Throws<HttpException>(() => WebApp.MapPath("/a/../../outside"));
+                A.Throws<ArgumentException>(() => WebApp.MapPath("C:\\Windows"));
             });
 
             t.Add("hosting: background work completes and shutdown waits", () =>
             {
-                HostingEnvironment.BeginHosting(null);
+                WebApp.BeginHosting(null);
                 int done = 0;
                 var started = new ManualResetEventSlim();
                 WebApp.BackgroundWork(ct => { started.Set(); Thread.Sleep(200); Interlocked.Increment(ref done); });
                 WebApp.BackgroundWork(async ct => { await System.Threading.Tasks.Task.Delay(50); Interlocked.Increment(ref done); });
                 WebApp.BackgroundWork(ct => { throw new InvalidOperationException("reported, not crashing"); });
                 started.Wait(2000);
-                A.True(HostingEnvironment.InitiateShutdown(TimeSpan.FromSeconds(5)), "all finished");
+                A.True(WebApp.InitiateShutdown(TimeSpan.FromSeconds(5)), "all finished");
                 A.Eq(2, done);
                 WebApp.BackgroundWork(ct => Interlocked.Increment(ref done));
                 Thread.Sleep(50);
                 A.Eq(2, done, "ignored after shutdown");
-                HostingEnvironment.BeginHosting(null);
+                WebApp.BeginHosting(null);
             });
 
             t.Add("static: range parsing", () =>

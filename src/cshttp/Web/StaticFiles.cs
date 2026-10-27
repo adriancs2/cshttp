@@ -202,7 +202,7 @@ namespace cshttp
         static string ResolveRoot(string physical)
         {
             if (string.IsNullOrEmpty(physical)) throw new InvalidOperationException("StaticFileOptions.PhysicalPath is required.");
-            string root = Path.IsPathRooted(physical) ? physical : Path.Combine(HostingEnvironment.ApplicationPhysicalPath, physical);
+            string root = Path.IsPathRooted(physical) ? physical : Path.Combine(WebApp.ApplicationPhysicalPath, physical);
             root = Path.GetFullPath(root);
             if (root[root.Length - 1] != Path.DirectorySeparatorChar) root += Path.DirectorySeparatorChar;
             return root;

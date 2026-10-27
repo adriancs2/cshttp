@@ -68,7 +68,7 @@ namespace cshttp
             _handler = handler;
 
             EnsureThreadPoolMinThreads();
-            HostingEnvironment.BeginHosting(_o.ContentRoot);
+            WebApp.BeginHosting(_o.ContentRoot);
             try
             {
                 foreach (ServerBinding binding in _o.Bindings)
@@ -136,7 +136,7 @@ namespace cshttp
             }
             foreach (Thread t in _acceptThreads) t.Join(2000);
             TimeSpan left = deadline - DateTime.UtcNow;
-            if (_started == 1) HostingEnvironment.InitiateShutdown(left > TimeSpan.Zero ? left : TimeSpan.Zero);
+            if (_started == 1) WebApp.InitiateShutdown(left > TimeSpan.Zero ? left : TimeSpan.Zero);
             _stopped.Set();
         }
 

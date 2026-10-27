@@ -29,9 +29,9 @@ namespace HearthFileManager.RH
                               "application pool identity \"Modify\" permission on it (shared hosting: set write permission in the hosting control panel).";
                 }
             }
-            string rootDisplay = HttpUtility.HtmlEncode(AppConfig.DisplayPath(rootFull));
+            string rootDisplay = WebApp.HtmlEncode(AppConfig.DisplayPath(rootFull));
             string banner = problem == null ? "" :
-                $"<div class='fm-banner'><i class='fa-solid fa-triangle-exclamation'></i><div><b>{rootDisplay}</b><br />{HttpUtility.HtmlEncode(problem)}</div></div>";
+                $"<div class='fm-banner'><i class='fa-solid fa-triangle-exclamation'></i><div><b>{rootDisplay}</b><br />{WebApp.HtmlEncode(problem)}</div></div>";
 
             var pt = new PageTemplate { Title = "My Files", BodyClass = "page-files", ActiveMenu = "files" };
             pt.ExtraHeaderText = StaticAsset.Css("/css/files.css") + "\n" + StaticAsset.Css("/css/components/hearth-editor.css");

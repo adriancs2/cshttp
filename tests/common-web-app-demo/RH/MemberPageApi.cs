@@ -104,11 +104,11 @@ namespace CommonWebAppDemo.RH
             for (int i = 0; i < members.Count; i++)
             {
                 MemberItem m = members[i];
-                string name = HttpUtility.HtmlEncode(m.Name);
-                string email = HttpUtility.HtmlEncode(m.Email);
-                string role = HttpUtility.HtmlEncode(m.Role);
-                string avatar = HttpUtility.HtmlAttributeEncode(m.AvatarUrl);
-                string date = HttpUtility.HtmlEncode(m.CreatedAt);
+                string name = WebApp.HtmlEncode(m.Name);
+                string email = WebApp.HtmlEncode(m.Email);
+                string role = WebApp.HtmlEncode(m.Role);
+                string avatar = WebApp.HtmlAttributeEncode(m.AvatarUrl);
+                string date = WebApp.HtmlEncode(m.CreatedAt);
 
                 sb.Append($@"
 <tr class='member-row' data-id='{m.Id}'>
