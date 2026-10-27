@@ -1,4 +1,6 @@
-﻿# cshttp
+![cshttp banner](https://raw.githubusercontent.com/wiki/adriancs2/cshttp/CSHTTP%20Tutorial/cover.png)
+
+ # cshttp
 
 > **A fast, zero-dependency, pure C# HTTP/1.1 micro web server and toolkit. Built-in wire parser and classic Request/Response API. Runs on .NET Framework 4.8 and .NET 8/10+.**
 
@@ -254,12 +256,16 @@ Drop the `Core/`, `Web/`, and `Server/` folders directly into your solution for 
 
 ## Documentation & Tutorials
 
-- **[15-Day Beginner Tutorial Series](wiki/CSHTTP%20Tutorial/Day%2000.md)**: A complete, step-by-step course building web apps from scratch.
-- **[Architecture & Structure Overview](wiki/0-cshttp-structure-overview.md)**: Deep dive into the internal IOCP socket listener, wire parser, and zero-allocation pipelines.
-- **[Benchmark Report](wiki/4-Benchmark-Report.md)**: High-concurrency throughput and latency benchmarks.
-- [Tier 1 Complete Reference: cshttp.core — The RFC 9112 Wire Engine](https://github.com/adriancs2/cshttp/blob/main/wiki/1-cshttp-Wire-Engine.md)
-- [Tier 2 Deep Dive: cshttp.web — Content Toolkit & System.Web Drop-In](https://github.com/adriancs2/cshttp/blob/main/wiki/2-cshttp-web-Toolkit.md)
-- [Tier 3 Deep Dive: cshttp.server 1.0 — High-Concurrency Standalone Web Server](https://github.com/adriancs2/cshttp/blob/main/wiki/3-cshttp-server-Engine.md)
+Wiki Link: [https://github.com/adriancs2/cshttp/wiki](https://github.com/adriancs2/cshttp/wiki)
+
+Wiki Content:
+
+- **15-Day Beginner Tutorial Series**: A complete, step-by-step course building web apps from scratch.
+- **Architecture & Structure Overview**: Deep dive into the internal IOCP socket listener, wire parser, and zero-allocation pipelines.
+- **Benchmark Report**: High-concurrency throughput and latency benchmarks.
+- Tier 1 Complete Reference: cshttp.core — The RFC 9112 Wire Engine
+- Tier 2 Deep Dive: cshttp.web - Content Toolkit & System.Web Drop-In
+- Tier 3 Deep Dive: cshttp.server 1.0 — High-Concurrency Standalone Web Server
 
 ---
 
