@@ -252,7 +252,7 @@ Download the pre-configured **[cshttp-starter-pack.zip](https://github.com/adria
 
 ### Option 2: Add `cshttp.dll` to Your Project
 1. Grab `cshttp.dll` from Releases (or build from source).
-2. Reference it in your `.csproj`:
+2. Reference it in your project via solution explorer or `.csproj`:
    ```xml
    <ItemGroup>
      <Reference Include="cshttp"><HintPath>lib\cshttp.dll</HintPath></Reference>
